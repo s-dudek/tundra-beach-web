@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="web_bildmarke_tundra-beach.svg">
+<title>Tundra Beach — Work in Progress</title>
+<script>
+  try{
+    if (sessionStorage.getItem('tbIntroSeen')) {
+      document.documentElement.classList.add('skip-intro');
+    } else {
+      sessionStorage.setItem('tbIntroSeen', '1');
+    }
+  }catch(e){}
+</script>
+<style>
+  :root{
+    --bg: #ffffff;
+    --ink: #2c2c2b;
+  }
+  *{ box-sizing: border-box; }
+  html,body{
+    margin:0;
+    padding:0;
+    height:100%;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* ---------- Background illustration ---------- */
+  .bg-photo{
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+    overflow:hidden;
+    pointer-events:none;
+  }
+  .bg-photo img{
+    height: min(24vh, 210px);
+    width:auto;
+    max-width: 60vw;
+    opacity: 0.14;
+    transform: translateY(4%);
+  }
+
+  /* ---------- Brand mark, fixed top-left ---------- */
+  .brand-mark{
+    position: fixed;
+    top: clamp(14px, 3vh, 26px);
+    left: clamp(14px, 3vw, 26px);
+    z-index: 20;
+    display:block;
+    width: clamp(38px, 5.6vw, 56px);
+    opacity: 0;
+    animation: brandReveal .6s ease forwards;
+    animation-delay: 1.5s;
+    transition: transform .2s ease, opacity .2s ease;
+  }
+  .brand-mark:hover,
+  .brand-mark:focus-visible{
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  .brand-mark img{
+    width:100%;
+    height:auto;
+    display:block;
+  }
+  @keyframes brandReveal{ to{ opacity: .94; } }
+
+  /* ---------- Intro ---------- */
+  #intro{
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: var(--bg);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    animation: introOut .5s ease forwards;
+    animation-delay: 1.5s;
+  }
+
+  @keyframes introOut{
+    to{ opacity: 0; visibility: hidden; }
+  }
+
+  .intro-mark{
+    position:absolute;
+    height:auto;
+    opacity:0;
+    transform-origin: 50% 50%;
+  }
+  .intro-wort{
+    width: min(64vw, 400px);
+    animation: introWortKF 1.5s ease-in-out 1 both;
+  }
+  .intro-bild{
+    width: min(54vw, 340px);
+    animation: introBildKF 1.5s ease-in-out 1 both;
+  }
+
+  @keyframes introWortKF{
+    0%   { opacity:0; transform:scale(.82); }
+    14%  { opacity:0; transform:scale(.82); }
+    20%  { opacity:1; transform:scale(1.08); }
+    26%  { opacity:1; transform:scale(1); }
+    50%  { opacity:1; transform:scale(1); }
+    58%  { opacity:0; transform:scale(1); }
+    100% { opacity:0; transform:scale(1); }
+  }
+  @keyframes introBildKF{
+    0%   { opacity:0; transform:scale(.82); }
+    58%  { opacity:0; transform:scale(.82); }
+    64%  { opacity:1; transform:scale(1.1); }
+    70%  { opacity:1; transform:scale(1); }
+    85%  { opacity:1; transform:scale(1); }
+    100% { opacity:0; transform:scale(7); }
+  }
+
+  .flash{
+    position:fixed;
+    inset:0;
+    background:#fff;
+    z-index: 51;
+    pointer-events:none;
+    opacity:0;
+  }
+  .flash-1{ animation: flash1KF 1.5s ease-out 1 both; }
+  .flash-2{ animation: flash2KF 1.5s ease-out 1 both; }
+  .flash-3{ animation: flash3KF 1.5s ease-out 1 both; }
+
+  @keyframes flash1KF{
+    0%   { opacity:0; }
+    14%  { opacity:0; }
+    17%  { opacity:.85; }
+    21%  { opacity:0; }
+    100% { opacity:0; }
+  }
+  @keyframes flash2KF{
+    0%   { opacity:0; }
+    57%  { opacity:0; }
+    59%  { opacity:.85; }
+    63%  { opacity:0; }
+    100% { opacity:0; }
+  }
+  @keyframes flash3KF{
+    0%   { opacity:0; }
+    87%  { opacity:0; }
+    90%  { opacity:.85; }
+    94%  { opacity:0; }
+    100% { opacity:0; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    #intro{ display:none; }
+    .intro-mark,
+    .flash{ animation: none !important; }
+  }
+  html.skip-intro #intro{ display:none; }
+  html.skip-intro .intro-mark,
+  html.skip-intro .flash{ animation: none !important; }
+
+  /* ---------- Main (post-intro) ---------- */
+  body{
+    min-height:100dvh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap: clamp(28px, 6vh, 56px);
+    padding: 24px;
+  }
+  #main{
+    position: relative;
+    z-index: 1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap: clamp(26px, 5.5vh, 48px);
+    opacity: 0;
+    transform: translateY(12px);
+    animation: mainReveal .7s ease forwards;
+    animation-delay: 1.5s;
+  }
+  @keyframes mainReveal{
+    to{ opacity: 1; transform: translateY(0); }
+  }
+
+  .logo{
+    width: min(48vw, 230px);
+    height:auto;
+    display:block;
+  }
+
+  .status{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap: 6px;
+  }
+  .wave-scene{
+    position: relative;
+    width: clamp(150px, 20vw, 210px);
+    aspect-ratio: 1040 / 276.33;
+    color: var(--ink);
+  }
+  .wave-scene svg{
+    width: 100%;
+    height: 100%;
+    display: block;
+    animation: waveWipe 5s ease-in-out infinite;
+  }
+  .wave-scene path{ fill: currentColor; opacity: 0.82; }
+  @keyframes waveWipe{
+    0%   { clip-path: inset(0 100% 0 0); }
+    45%  { clip-path: inset(0 0% 0 0); }
+    55%  { clip-path: inset(0 0% 0 0); }
+    100% { clip-path: inset(0 0% 0 100%); }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .wave-scene svg{ animation: none; clip-path: none; }
+  }
+
+  .label{
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: clamp(11px, 1.4vw, 13px);
+    letter-spacing: 0.16em;
+    font-weight: 700;
+    color: var(--ink);
+    opacity: 0.8;
+    white-space: nowrap;
+  }
+  .label::before{
+    content: "HBRP OI G8F1CBFN";
+    animation: labelDecode 12s steps(1) infinite;
+  }
+  @keyframes labelDecode{
+    0%   { content: "HBRP OI G8F1CBFN"; }
+    3%   { content: "O6B9 M8 0O2RAK1V"; }
+    6%   { content: "RJNV GF YGWWQC38"; }
+    8%   { content: "HYF9 SX MECOSFOG"; }
+    11%  { content: "YR3X KX WNREK8PK"; }
+    14%  { content: "3YR9 OU DOCUZREN"; }
+    17%  { content: "UN5Z 3J QIP98Q1Z"; }
+    19%  { content: "XOI6 5F DHJK1EYY"; }
+    22%  { content: "37Q9 AH 8RVHS1K3"; }
+    25%  { content: "WOAQ 6L 6GT6MJXK"; }
+    27%  { content: "WORK 87 AU5BHXTP"; }
+    29%  { content: "WORK ID PFF5E8II"; }
+    31%  { content: "WORK IN P49KQ71N"; }
+    33%  { content: "WORK IN PRO8MTZX"; }
+    35%  { content: "WORK IN PROG272H"; }
+    37%  { content: "WORK IN PROGREPO"; }
+    39%  { content: "WORK IN PROGRESS"; }
+    83%  { content: "WORK IN PROGRESS"; }
+    85%  { content: "WORK IN PROGREPO"; }
+    87%  { content: "WORK IN PROG272H"; }
+    89%  { content: "WORK IN PRO8MTZX"; }
+    91%  { content: "WORK IN P49KQ71N"; }
+    93%  { content: "WORK ID PFF5E8II"; }
+    95%  { content: "WORK 87 AU5BHXTP"; }
+    97%  { content: "WOAQ 6L 6GT6MJXK"; }
+    100% { content: "HBRP OI G8F1CBFN"; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .label::before{ animation:none; content: "WORK IN PROGRESS"; }
+  }
+
+  .hacker-block{
+    width: clamp(96px, 13vw, 132px);
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: clamp(7px, 0.95vw, 9px);
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    line-height: 1.4;
+    color: var(--ink);
+    opacity: 0.45;
+    text-align: center;
+  }
+  .hbline{ white-space: nowrap; overflow: hidden; }
+  .hbline1::before{ content:"ZYMLOPIFQY78F5"; animation: hbLine1 1.6s steps(1) infinite; }
+  .hbline2::before{ content:"U48IQ1S0KS"; animation: hbLine2 1.3s steps(1) infinite; }
+  .hbline3::before{ content:"QKIDZCDV6O9S"; animation: hbLine3 1.9s steps(1) infinite; }
+
+  @keyframes hbLine1{
+    0%   { content:"ZYMLOPIFQY78F5"; }
+    10%  { content:"M0NXYNJ3LVF7F4"; }
+    20%  { content:"UZCR9A1NX8F37M"; }
+    30%  { content:"3DWINK2L6LCHBK"; }
+    40%  { content:"40F1FJTAYVI7ZM"; }
+    50%  { content:"DN2Q8ZIW4DIJ0H"; }
+    60%  { content:"GHJSLL0JN9U5OQ"; }
+    70%  { content:"HXLE6SADVNYZVZ"; }
+    80%  { content:"Y0X8FLCXZ2OTOT"; }
+    90%  { content:"GUNPYS2F20QE6S"; }
+    100% { content:"ZYMLOPIFQY78F5"; }
+  }
+  @keyframes hbLine2{
+    0%   { content:"U48IQ1S0KS"; }
+    10%  { content:"Y2MYVMWAWS"; }
+    20%  { content:"MKQ0O0WZAH"; }
+    30%  { content:"68MA7TK62N"; }
+    40%  { content:"Q0397SMBGT"; }
+    50%  { content:"ECD0TX9SMG"; }
+    60%  { content:"ZZLQ3VII2Y"; }
+    70%  { content:"09LXQNR3YL"; }
+    80%  { content:"44KE8P37AH"; }
+    90%  { content:"V5EVA8RAU0"; }
+    100% { content:"U48IQ1S0KS"; }
+  }
+  @keyframes hbLine3{
+    0%   { content:"QKIDZCDV6O9S"; }
+    10%  { content:"K2D0OMH5KRRX"; }
+    20%  { content:"E9M9LW8FHIIJ"; }
+    30%  { content:"8FC6YKWOKVDV"; }
+    40%  { content:"1MTLHJ57AOYG"; }
+    50%  { content:"P2FKK2XQUCZB"; }
+    60%  { content:"TKIAS9SSH51E"; }
+    70%  { content:"CWKUVUCYRO9J"; }
+    80%  { content:"BSZ06OL70DNP"; }
+    90%  { content:"QKG1ABMILTDQ"; }
+    100% { content:"QKIDZCDV6O9S"; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .hbline1::before,
+    .hbline2::before,
+    .hbline3::before{ animation:none; }
+  }
+
+  .legal-footer{
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: clamp(14px, 3vh, 28px);
+    z-index: 10;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap: 10px;
+    font-size: clamp(10px, 1.1vw, 12px);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink);
+    opacity: 0.5;
+  }
+  .legal-footer a{
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: opacity .2s ease, border-color .2s ease;
+  }
+  .legal-footer a:hover,
+  .legal-footer a:focus-visible{
+    opacity: 1;
+    border-color: currentColor;
+  }
+  .legal-footer span{ opacity:0.6; }
+
+  @media (prefers-reduced-motion: reduce){
+    #main{ animation:none; opacity: 1; transform:none; }
+    .brand-mark{ animation:none; opacity: .94; }
+  }
+  html.skip-intro #main{ animation:none !important; opacity: 1; transform:none; }
+  html.skip-intro .brand-mark{ animation:none !important; opacity: .94; }
+</style>
+</head>
+<body>
+
+  <div class="bg-photo" aria-hidden="true">
+    <img src="web_huette_tundra-beach.svg" alt="">
+  </div>
+
+  <div id="intro" aria-hidden="true">
+    <div class="flash flash-1"></div>
+    <div class="flash flash-2"></div>
+    <div class="flash flash-3"></div>
+    <img class="intro-mark intro-wort" src="web_wortmarke_tundra-beach.svg" alt="">
+    <img class="intro-mark intro-bild" src="web_bildmarke_tundra-beach.svg" alt="">
+  </div>
+
+  <a class="brand-mark" href="index.html" aria-label="Zur Startseite">
+    <img src="web_bildmarke_tundra-beach.svg" alt="Tundra Beach">
+  </a>
+
+  <div id="main">
+    <img class="logo" src="web_wortmarke_tundra-beach.svg" alt="Tundra Beach">
+
+    <div class="status">
+      <div class="wave-scene" aria-hidden="true">
+        <svg viewBox="0 0 1040 276.33">
+          <path d="M315.83,276.33l34.72-34.72c11.9-11.79,27.6-18.28,44.19-18.28s32.24,6.33,44.24,18.33l23.86,23.87,132.32-132.32c8.67-8.59,17.87-16.48,27.57-23.63l-25.83-25.83C542.9,29.74,471.1,0,394.74,0c-37.7,0-74.45,7.3-109.23,21.69-34.54,14.28-65.56,34.93-92.2,61.33L0,276.33h315.83Z"/>
+          <path d="M706.83,276.33l15.17-15.17c9.5-9.42,21.28-15.66,34.05-18.21,4.28-.85,8.68-1.29,13.13-1.29,18.12,0,34.46,6.77,47.27,19.58l15.09,15.09h208.45l-119.3-119.33c-40.46-40.47-94.27-62.76-151.51-62.76-28.26,0-55.8,5.47-81.86,16.25-14.59,6.03-28.34,13.58-41.14,22.56-9.9,6.95-19.23,14.76-27.94,23.39l-119.89,119.89h208.48Z"/>
+        </svg>
+      </div>
+      <div class="label" role="text" aria-label="Work in Progress"></div>
+      <div class="hacker-block" aria-hidden="true">
+        <div class="hbline hbline1"></div>
+        <div class="hbline hbline2"></div>
+        <div class="hbline hbline3"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legal-footer">
+    <a href="mailto:info@tundra-beach.at">Kontakt</a>
+    <span aria-hidden="true">&middot;</span>
+    <a href="impressum.html">Impressum</a>
+    <span aria-hidden="true">&middot;</span>
+    <a href="datenschutz.html">Datenschutz</a>
+  </div>
+
+</body>
+</html>
