@@ -4,29 +4,49 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'">
-<meta name="description" content="Tundra Beach – die Bildmarke in 3D.">
+<meta name="description" content="Tundra Beach – unter Wasser: die Bildmarke in 3D, Wasserstand, Wetter, Uhr und Kalender.">
 <link rel="icon" type="image/svg+xml" href="web_bildmarke_tundra-beach.svg">
 <title>Tundra Beach</title>
 <link rel="stylesheet" href="marke.css">
 </head>
 <body>
 
-  <!-- Mini-Marke oben links: schaut dem Zeiger hinterher, ein Klick startet die Animation von vorn -->
-  <button class="mini" id="mini" type="button" aria-label="Animation von vorn starten" title="Von vorn starten">
+  <!-- Home-Logo oben links: bewegt sich nur leicht mit dem Zeiger, ein Klick bringt dich zurück und startet von vorn -->
+  <button class="mini" id="mini" type="button" aria-label="Zur Startseite, Animation von vorn starten" title="Zur Startseite">
     <canvas id="mini3d" aria-hidden="true"></canvas>
   </button>
+
+  <!-- Im Untermenü: Pfeil nach oben, zurück zur Startseite -->
+  <button class="zurueck" id="zurueck" type="button" hidden><span aria-hidden="true">←</span> Zurück zur Startseite</button>
 
   <main class="tour" id="tour">
     <div class="buehne">
       <h1 class="nur-leser">Tundra Beach</h1>
 
-      <!-- Ohne WebGL bleibt die flache Bildmarke stehen. Mit WebGL schwebt sie als 3D-Körper im Canvas. -->
+      <!-- Ohne WebGL bleibt die flache Bildmarke stehen. Mit WebGL schwebt sie als 3D-Körper im Wasser. -->
       <img class="flach" src="web_marke-gelb_tundra-beach.svg" alt="Bildmarke von Tundra Beach: ein Schild mit einem Kopf, riesiger Nase, Taucherbrille und Schnorchel">
-      <canvas class="marke3d" id="marke3d" role="img" aria-label="Bildmarke von Tundra Beach in 3D. Ziehen dreht sie, Scrollen zeigt neue Perspektiven."></canvas>
+      <canvas class="marke3d" id="marke3d" role="img" aria-label="Tundra Beach unter Wasser: die Bildmarke in 3D. Ziehen dreht sie, Scrollen zeigt neue Perspektiven, die Textpunkte führen zu Wasserstand, Wetter, Uhr und Kalender."></canvas>
 
-      <p class="hinweis" id="hinweis" aria-hidden="true">Ziehen zum Drehen &middot; Scrollen für neue Perspektiven</p>
+      <div class="punkte" id="punkte"></div>
+      <p class="hinweis" id="hinweis" aria-hidden="true">Ziehen zum Drehen &middot; Scrollen zum Eintauchen</p>
+
+      <!-- Menü für die ruhige Variante (reduzierte Bewegung): ohne Flug direkt zu den Tafeln -->
+      <nav class="menue" id="menue" aria-label="Inhalte" hidden>
+        <button type="button" data-ziel="wasserstand">Wasserstand</button>
+        <button type="button" data-ziel="wetter">Wetter</button>
+        <button type="button" data-ziel="uhr">Uhr</button>
+        <button type="button" data-ziel="kalender">Kalender</button>
+      </nav>
     </div>
   </main>
+
+  <!-- Inhalte als Text: für Screenreader und wenn 3D nicht läuft -->
+  <section class="daten" id="daten" aria-label="Inhalte">
+    <article id="d-wasserstand"><h2>Wasserstand</h2><div class="zeilen"></div></article>
+    <article id="d-wetter"><h2>Wetter in Lienz</h2><div class="zeilen"></div></article>
+    <article id="d-uhr"><h2>Uhr</h2><div class="zeilen"></div></article>
+    <article id="d-kalender"><h2>Kalender</h2><div class="zeilen"></div></article>
+  </section>
 
   <nav class="legal-footer" aria-label="Rechtliches">
     <a href="mailto:info@tundra-beach.at">Kontakt</a>
@@ -37,6 +57,8 @@
   </nav>
 
   <script src="geometrie.js"></script>
+  <script src="daten.js"></script>
+  <script src="tafel.js"></script>
   <script src="marke3d.js" defer></script>
 </body>
 </html>

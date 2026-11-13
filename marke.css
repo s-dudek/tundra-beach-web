@@ -1,23 +1,37 @@
 :root{
-  --bg: #ffffff;
   --ink: #2c2c2b;
+  --text: #f2fbff;
+  --wasser-oben: #1d9bb8;
+  --wasser-mitte: #0d6286;
+  --wasser-unten: #062a44;
 }
 *{ box-sizing: border-box; }
-html, body{ margin: 0; background: var(--bg); color: var(--ink); }
-body{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+html, body{ margin: 0; color: var(--text); }
+html{ background: var(--wasser-unten); }
+html.untermenue{ overflow: hidden; }
+body{
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: linear-gradient(180deg, var(--wasser-oben) 0%, var(--wasser-mitte) 42%, var(--wasser-unten) 100%) fixed;
+}
 img{ display: block; }
+button{ font: inherit; color: inherit; }
 .nur-leser{ position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-/* Ohne 3D: eine Bildschirmhöhe, flache Bildmarke in der Mitte */
+/* Ohne 3D: eine Bildschirmhöhe, flache Bildmarke in der Mitte, darunter die Inhalte als Text */
 .tour{ height: 100svh; }
 .buehne{ position: sticky; top: 0; height: 100svh; display: grid; place-items: center; overflow: hidden; }
-.flach{ width: min(60vw, 52svh, 520px); height: auto; }
-.marke3d{ display: none; }
+.flach{ width: min(60vw, 52svh, 520px); height: auto; filter: drop-shadow(0 18px 24px rgba(0, 20, 40, .35)); }
+.marke3d, .punkte, .menue{ display: none; }
+.daten{ display: grid; gap: 18px; width: min(560px, 92vw); margin: 0 auto; padding: 24px 0 110px; }
+.daten article{ background: rgba(255, 255, 255, .92); color: var(--ink); border-radius: 16px; padding: 18px 22px; }
+.daten h2{ margin: 0 0 8px; font-size: 1.05rem; }
+.daten p{ margin: 4px 0; font-size: .95rem; }
 
 /* Mit 3D: Das Canvas füllt den Bildschirm, die Marke schwebt darin. Die Länge der Seite ist die Länge der Reise. */
-.ist-3d .tour{ height: 800svh; }
+.ist-3d .tour{ height: 850svh; }
 .ist-3d.ruhig .tour{ height: 100svh; }
 .ist-3d .flach{ display: none; }
+.ist-3d .daten{ position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); }
 .ist-3d .marke3d{
   display: block; position: absolute; inset: 0; width: 100%; height: 100%;
   cursor: grab; touch-action: pan-y;      /* senkrecht scrollt die Seite, waagrecht dreht die Marke */
@@ -25,6 +39,29 @@ img{ display: block; }
 }
 .ist-3d .marke3d.zieht{ cursor: grabbing; }
 
+/* Textpunkte an den Zoom-Stellen */
+.ist-3d .punkte{ display: block; position: fixed; inset: 0; z-index: 6; pointer-events: none; }
+.ist-3d.ruhig .punkte{ display: none; }
+.punkt{ position: absolute; left: 0; top: 0; opacity: 0; will-change: transform, opacity; }
+.punkt-dot{
+  position: absolute; left: -7px; top: -7px; width: 14px; height: 14px; border-radius: 50%; background: #fff;
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, .22), 0 0 18px rgba(255, 255, 255, .7); animation: puls 2.6s ease-in-out infinite;
+}
+@keyframes puls{ 50%{ box-shadow: 0 0 0 11px rgba(255, 255, 255, .1), 0 0 24px rgba(255, 255, 255, .9); } }
+.punkt-linie{ position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; }
+.punkt-linie line{ stroke: rgba(255, 255, 255, .75); stroke-width: 1.5; }
+.punkt-text{
+  position: absolute; left: 0; top: 0; padding: 10px 16px 11px; border-radius: 16px; text-align: left; cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, .5); background: rgba(6, 42, 68, .5); color: #fff;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); box-shadow: 0 8px 24px rgba(0, 20, 40, .35);
+  transition: background .25s ease, border-color .25s ease;
+}
+.punkt-text > span{ display: block; font-size: clamp(15px, 1.5vw, 19px); font-weight: 650; letter-spacing: .01em; white-space: nowrap; }
+.punkt-text > span::after{ content: " →"; opacity: .8; }
+.punkt-text > small{ display: block; margin-top: 3px; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; opacity: .75; white-space: nowrap; }
+.punkt-text:hover, .punkt-text:focus-visible{ background: rgba(255, 255, 255, .22); border-color: #fff; outline: none; }
+
+/* Home-Logo oben links */
 .mini{ display: none; }
 .ist-3d .mini{
   display: block; position: fixed; z-index: 10; left: clamp(10px, 2vw, 22px); top: clamp(10px, 2vw, 22px);
@@ -33,31 +70,53 @@ img{ display: block; }
   transition: transform .4s cubic-bezier(.2, .8, .2, 1);
 }
 .ist-3d .mini[hidden]{ display: none; }
-.ist-3d .mini:hover{ transform: scale(1.12); }
-.ist-3d .mini:focus-visible{ outline: 2px solid var(--ink); outline-offset: 4px; }
+.ist-3d .mini:hover{ transform: scale(1.08); }
+.ist-3d .mini:focus-visible{ outline: 2px solid #fff; outline-offset: 4px; }
 .mini canvas{ display: block; width: 100%; height: 100%; pointer-events: none; }
+
+/* Untermenü: Pfeil und Weg zurück oben */
+.zurueck{
+  position: fixed; z-index: 10; top: clamp(14px, 2.6vw, 28px); left: 50%;
+  padding: 10px 20px 11px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+  border: 1px solid rgba(255, 255, 255, .55); background: rgba(6, 42, 68, .55);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); box-shadow: 0 8px 24px rgba(0, 20, 40, .35);
+  font-size: clamp(14px, 1.4vw, 17px); font-weight: 600; letter-spacing: .01em;
+  opacity: 0; transform: translate(-50%, -14px); pointer-events: none;
+  transition: opacity .6s ease .5s, transform .8s cubic-bezier(.2, .8, .2, 1) .5s, background .25s ease;
+}
+.zurueck[hidden]{ display: none; }
+.zurueck span{ display: inline-block; margin-right: 6px; transition: transform .3s ease; }
+.zurueck:hover span{ transform: translateX(-4px); }
+.zurueck:hover, .zurueck:focus-visible{ background: rgba(255, 255, 255, .24); outline: none; }
+.untermenue .zurueck{ opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+
+/* Menü für die ruhige Variante */
+.ist-3d.ruhig .menue{ display: flex; position: absolute; left: 0; right: 0; bottom: clamp(52px, 9svh, 84px); justify-content: center; gap: 10px; flex-wrap: wrap; padding: 0 12px; }
+.menue button{ padding: 9px 16px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .55); background: rgba(6, 42, 68, .5); cursor: pointer; font-weight: 600; font-size: 15px; }
+.menue button:hover, .menue button:focus-visible{ background: rgba(255, 255, 255, .22); outline: none; }
 
 .hinweis{
   position: absolute; left: 0; right: 0; bottom: clamp(48px, 9svh, 84px); margin: 0; text-align: center;
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: clamp(9px, 1.2vw, 12px); letter-spacing: .12em; text-transform: uppercase; opacity: 0;
-  padding: 0 12px; pointer-events: none;
+  padding: 0 12px; pointer-events: none; color: #fff; text-shadow: 0 1px 8px rgba(0, 20, 40, .6);
 }
-.ist-3d .hinweis{ opacity: .6; animation: einblenden 2.4s ease 3.2s both; transition: opacity 1s ease; }
+.ist-3d .hinweis{ opacity: .8; animation: einblenden 2.4s ease 3.2s both; transition: opacity 1s ease; }
+.ist-3d.ruhig .hinweis{ display: none; }
 .ist-3d .hinweis.weg{ opacity: 0 !important; animation: none; }
-@keyframes einblenden{ from{ opacity: 0; } to{ opacity: .6; } }
+@keyframes einblenden{ from{ opacity: 0; } to{ opacity: .8; } }
 
 .legal-footer{
   position: fixed; left: 0; right: 0; bottom: clamp(14px, 3vh, 28px); z-index: 5;
   display: flex; justify-content: center; align-items: center; gap: 10px;
   font-size: clamp(10px, 1.1vw, 12px); letter-spacing: .1em; text-transform: uppercase;
-  color: var(--ink); opacity: .6;
-  text-shadow: 0 0 6px #fff, 0 0 3px #fff, 0 0 2px #fff;   /* lesbar auch über der Marke */
+  color: #fff; opacity: .8; text-shadow: 0 1px 6px rgba(0, 20, 40, .7);
 }
 .legal-footer a{ color: inherit; text-decoration: none; border-bottom: 1px solid transparent; transition: border-color .2s ease; }
 .legal-footer a:hover, .legal-footer a:focus-visible{ border-color: currentColor; }
 .legal-footer span{ opacity: .6; }
 
 @media (prefers-reduced-motion: reduce){
-  .ist-3d .hinweis{ animation: none; }
+  .ist-3d .hinweis, .punkt-dot{ animation: none; }
+  .zurueck{ transition: none; }
 }
