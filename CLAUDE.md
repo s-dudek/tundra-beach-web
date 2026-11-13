@@ -8,10 +8,11 @@ Webseite für www.tundra-beach.at – Spaßseite eines nicht eingetragenen Verei
 - Kontakt-Mail: info@tundra-beach.at (Zoho Mail).
 
 ## Aktueller Stand
-- `index.html`: Scroll-Rundgang durch die Hütte. Die Hütte steht als echter 3D-Körper in einer weißen Welt (Boden mit Raster, weicher Schatten, Nebel zum Rand). Beim Scrollen geht man zur Tür (rechts), sie öffnet sich nach außen, man geht hinein und schaut nach links. An der Rückwand hängen Uhr, Kalender und die Pegellatte. Dann zum Fenster in der Vorderwand (Blick nach draußen aufs Wetter), zur Tür hinaus, umdrehen, die Hütte wieder sehen, Tür schließt sich. Davor das Intro (Wortmarke → Bildmarke, einmal pro Sitzung über sessionStorage).
+- Live ist der Platzhalter "Work in Progress" (`index.html`). Die Seite mit dem 3D-Rundgang durch die Hütte liegt als `seite.html` bereit. Sie wurde zurückgenommen, weil sie auf dem Gerät des Auftraggebers "komplett zerschossen" dargestellt wurde (Gerät und Browser unbekannt, im Test-Browser lief sie).
+- Neuer Versuch, noch nicht live: `marke.html` (+ `marke.css`, `marke.js`). Die drei Logos (Bildmarke, Wortmarke, Gesamtlogo) als dicke 3D-Plaketten aus gestapelten Scheiben, mit langsamem Intro (Scheiben fliegen auseinander und setzen sich zusammen), Schwingen, Neigung nach Zeiger/Finger und Drehen per Klick. Auswahl per Knöpfen oder `marke.html#bild|wort|gesamt`. Die Logo-SVGs stecken als `<symbol>` direkt im HTML (Farben als Attribute, damit keine Inline-Styles nötig sind); ändert sich ein Logo, die Symbole neu aus den SVGs erzeugen.
 - `impressum.html`, `datenschutz.html`: Rechtsseiten im gleichen Stil. Der Datenschutztext ist noch nicht auf die Live-Daten abgestimmt (Besucher sprechen nur mit der eigenen Domain, siehe unten).
 
-## Aufbau der Szene
+## Aufbau der Hütten-Szene (`seite.html`)
 - Die Hütte ist die SVG `web_huette_tundra-beach.svg` als Fassade (Langseite) vorn, dazu Rück-, Seiten- und Innenwände, Boden, Decke. Maße (Weltpixel, 1 Zeichnungseinheit = 6,65 px): Körper 1200 breit, 600 tief (halb so tief wie breit), 805 hoch. Ursprung = Mitte des Hüttenbodens, y nach unten, z zum Betrachter. Tür und Fensterglas sind Ausschnitte (`clip-path: path()`) in der Fassade und in der Innen-Vorderwand; die Tür ist eine eigene Ebene mit Angel links und öffnet nach außen.
 - Scharf bleibt die Hütte nur, weil die Kamera sich bewegt und nichts per `scale` aufgezogen wird. Kein `will-change: transform` auf großen Flächen.
 - `vorab.js` (vor dem Rendern): setzt `skip-intro` und die Klasse `szene`. Bei `prefers-reduced-motion` fehlt `szene`, dann gibt es eine ruhige Seite untereinander (Hütte, Karten).
