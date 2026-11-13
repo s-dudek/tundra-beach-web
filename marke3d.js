@@ -1,6 +1,6 @@
 // Tundra Beach unter Wasser (WebGL2): Die Bildmarke schwebt als echter 3D-Körper im Wasser, zwischen Blasen,
 // Meeresstaub und Plankton, mit Lichtstrahlen und Lichtmustern. Die Bereiche (Wasserstand, Wetter, Kalender, Kontakt)
-// sind Seifenblasen mit Symbol, die um die Marke schweben. Scrollen zoomt hinein und hinaus, Blase für Blase, ein Klick fliegt hin,
+// sind Seifenblasen mit Symbol, die um die Marke schweben. Scrollen zoomt auf den Mittelpunkt zu und wieder zurück, ein Klick auf eine Blase fliegt hin,
 // dort erscheinen die Inhalte als Text in der Blase. Wo der Zeiger entlangfährt, steigen kleine Blasen auf.
 // Alle Bewegungen laufen über gedämpfte Federn. Klappt WebGL nicht, bleibt die flache Bildmarke mit den Inhalten als Text.
 (() => {
@@ -54,10 +54,14 @@
   };
   const SCHLUESSEL = Object.keys(BLASEN);
   const ALIAS = { uhr: 'kalender' };                                // alte Adresse #uhr führt zum Kalender (dort steht auch die Uhr)
-  // Reise beim Scrollen = Zoomen: hinein zur Blase, verweilen, hinaus zur Übersicht, hinein zur nächsten.
-  // [Blase, von, bis] = Verweilen (Scroll-Fortschritt 0 bis 1)
-  const STOPPS = [['wasserstand', 0.17, 0.25], ['wetter', 0.36, 0.44], ['kalender', 0.55, 0.63], ['kontakt', 0.74, 0.82]];
+  // Reise beim Scrollen = Zoomen: immer auf den Mittelpunkt der Marke zu und wieder zurück in die Anfangsansicht
   const K = (p, gier, nick, roll, f, zoom) => ({ p, gier, nick, roll, f, zoom });
+  const MITTE = [0, 0, 0.1]; const TIEFE_ZOOM = 3.4;               // so nah kommt man beim Hineinzoomen
+  const BAHN = [
+    K(0, S_GIER, S_NICK, 0, [0, 0, 0], S_ZOOM), K(0.05, S_GIER, S_NICK, 0, [0, 0, 0], S_ZOOM),   // Übersicht
+    K(0.44, S_GIER, S_NICK, 0, MITTE, TIEFE_ZOOM), K(0.56, S_GIER, S_NICK, 0, MITTE, TIEFE_ZOOM),   // ganz nah, kurz verweilen
+    K(0.95, S_GIER, S_NICK, 0, [0, 0, 0], S_ZOOM), K(1, S_GIER, S_NICK, 0, [0, 0, 0], S_ZOOM),     // zurück
+  ];
   const MAX_KLEIN = 90;                                             // Blasen, die der Zeiger hinterlässt, höchstens gleichzeitig
 
   /* ---------- Zeiten ---------- */
@@ -380,32 +384,49 @@
     o = vec4(mix(t.rgb, u_wasser * t.a, nebel * 0.5), t.a);
   }`;
 
-  // Hintergrund: Wasser mit Tiefenverlauf und Lichtstrahlen von der Oberfläche
+  // Hintergrund: Wasser mit Lichtschwund nach unten, Strahlen von der Sonne über der Oberfläche, ziehender Trübung und Glanz oben
   const VS_HINTER = `#version 300 es
   layout(location=0) in vec2 a; void main(){ gl_Position = vec4(a, 0.9999, 1.0); }`;
   const FS_HINTER = `#version 300 es
   precision highp float;
   uniform vec2 u_res; uniform float u_zeit; uniform float u_tiefe; uniform vec2 u_blick;
   out vec4 o;
+  float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+  float vn(vec2 p){
+    vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), f.x), mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), f.x), f.y);
+  }
+  float fbm(vec2 p){ float a = 0.5; float s = 0.0; for (int i = 0; i < 4; i++) { s += a * vn(p); p = p * 2.03 + vec2(17.1, 9.3); a *= 0.5; } return s; }
   void main(){
-    vec2 uv = gl_FragCoord.xy / u_res;
+    vec2 uv = gl_FragCoord.xy / u_res; float asp = u_res.x / u_res.y;
     float y = uv.y + u_blick.y * 0.12;
-    vec3 oben = mix(vec3(0.20, 0.72, 0.82), vec3(0.05, 0.32, 0.46), u_tiefe);
-    vec3 mitte = mix(vec3(0.07, 0.46, 0.64), vec3(0.02, 0.17, 0.31), u_tiefe);
-    vec3 unten = mix(vec3(0.03, 0.22, 0.38), vec3(0.01, 0.07, 0.16), u_tiefe);
-    vec3 c = mix(unten, mitte, smoothstep(0.0, 0.55, y));
-    c = mix(c, oben, smoothstep(0.45, 1.0, y));
-    float x = uv.x + u_blick.x * 0.10;
-    float r = 0.0;
-    for (int i = 0; i < 4; i++) {
-      float f = float(i);
-      float ph = x * (4.5 + f * 3.1) + y * (1.0 + f * 0.35) + u_zeit * (0.045 + 0.02 * f) + f * 1.7;
-      r += pow(max(0.0, sin(ph + sin(ph * 0.7 + u_zeit * 0.1) * 1.3)), 5.0) * (0.55 - 0.1 * f);
-    }
-    r *= smoothstep(0.05, 1.0, y) * (1.0 - u_tiefe * 0.65);
-    c += vec3(0.55, 0.92, 1.0) * r * 0.21;
-    vec2 q = uv - 0.5; c *= 1.0 - dot(q, q) * 0.95;
-    c += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;   // gegen Streifen im Verlauf
+    // Wasser schluckt erst Rot, dann Grün: oben helles Türkis, in der Mitte Blau, unten fast Schwarzblau
+    vec3 oben = mix(vec3(0.26, 0.76, 0.78), vec3(0.06, 0.33, 0.44), u_tiefe);
+    vec3 mitte = mix(vec3(0.08, 0.44, 0.60), vec3(0.02, 0.17, 0.30), u_tiefe);
+    vec3 unten = mix(vec3(0.02, 0.18, 0.33), vec3(0.005, 0.06, 0.14), u_tiefe);
+    vec3 c = mix(unten, mitte, smoothstep(0.0, 0.5, y));
+    c = mix(c, oben, smoothstep(0.42, 1.05, y));
+
+    // Trübung: weiche, langsam ziehende Schleier (Schwebstoffe), mit Parallaxe beim Drehen
+    vec2 hp = vec2(uv.x * asp + u_blick.x * 0.6 + u_zeit * 0.007, y * 1.3 - u_zeit * 0.004);
+    float dunst = fbm(hp * 1.5) * 0.65 + fbm(hp * 3.4 + 7.0) * 0.35;
+    c = mix(c, c * 0.78 + vec3(0.015, 0.07, 0.085), smoothstep(0.34, 0.75, dunst) * 0.7 * (1.0 - u_tiefe * 0.4));
+    c += vec3(0.06, 0.2, 0.22) * smoothstep(0.55, 0.9, fbm(hp * 0.9 + 3.0)) * 0.35 * smoothstep(0.1, 0.9, y);
+
+    // Lichtstrahlen: gehen von der Sonne über dem Bild aus, fächern sich nach unten auf und flackern langsam
+    vec2 sonne = vec2(0.36 - u_blick.x * 0.3, 1.5);
+    vec2 d = (uv - sonne) * vec2(asp, 1.0);
+    float ang = atan(d.x, -d.y); float dist = length(d);
+    float r1 = fbm(vec2(ang * 9.0 + u_zeit * 0.018, u_zeit * 0.05));
+    float r2 = fbm(vec2(ang * 21.0 - u_zeit * 0.012, 3.0 + u_zeit * 0.07));
+    float r3 = fbm(vec2(ang * 40.0 + u_zeit * 0.02, 8.0 - u_zeit * 0.09));
+    float strahl = pow(smoothstep(0.36, 0.86, r1), 2.0) * 0.8 + pow(smoothstep(0.42, 0.92, r2), 2.4) * 0.5 + pow(smoothstep(0.5, 0.95, r3), 3.0) * 0.28;
+    strahl *= exp(-dist * 0.8) * (0.55 + 0.45 * dunst) * (1.0 - u_tiefe * 0.7);
+    c += vec3(0.55, 0.95, 0.98) * strahl * 0.42;
+    c += vec3(0.4, 0.85, 0.9) * exp(-dist * 1.7) * 0.2 * (1.0 - u_tiefe * 0.8);       // Glanz der Oberfläche oben
+
+    vec2 q = uv - 0.5; c *= 1.0 - dot(q, q) * 0.9;
+    c += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 200.0;   // gegen Streifen im Verlauf
     o = vec4(c, 1.0);
   }`;
 
@@ -417,25 +438,34 @@
   out float v_typ; out float v_alpha; out float v_unsch; out float v_s;
   void main(){
     float s = a_seed.w; float tv = fract(s * 13.7);
-    float typ = tv < 0.62 ? 0.0 : (tv < 0.83 ? 1.0 : 2.0);          // 0 Meeresstaub, 1 Plankton, 2 Blase
+    float typ = tv < 0.46 ? 0.0 : (tv < 0.66 ? 1.0 : (tv < 0.82 ? 2.0 : 3.0));   // 0 Meeresstaub, 1 Plankton, 2 Blase, 3 unscharfer Lichtfleck
     vec3 p = a_seed.xyz * 16.0;
     if (typ < 0.5) { p.y -= u_drift * 0.05 * (0.5 + fract(s * 3.3)); p.x += u_drift * 0.04 + sin(u_zeit * 0.2 + s * 40.0) * 0.4; p.z += cos(u_zeit * 0.17 + s * 31.0) * 0.4; }
     else if (typ < 1.5) { p.x += sin(u_zeit * 0.12 + s * 20.0) * 0.9 + u_drift * 0.06; p.y += sin(u_zeit * 0.1 + s * 9.0) * 0.5 - u_drift * 0.02; p.z += cos(u_zeit * 0.09 + s * 14.0) * 0.9; }
-    else { p.y += u_drift * (0.5 + 0.7 * fract(s * 7.1)); p.x += sin(u_zeit * 1.1 + p.y * 1.7 + s * 50.0) * 0.16; p.z += cos(u_zeit * 0.9 + p.y * 1.5 + s * 33.0) * 0.16; }
+    else if (typ < 2.5) { p.y += u_drift * (0.5 + 0.7 * fract(s * 7.1)); p.x += sin(u_zeit * 1.1 + p.y * 1.7 + s * 50.0) * 0.16; p.z += cos(u_zeit * 0.9 + p.y * 1.5 + s * 33.0) * 0.16; }
+    else { p.x += sin(u_zeit * 0.07 + s * 17.0) * 1.3 + u_drift * 0.05; p.y += sin(u_zeit * 0.06 + s * 11.0) * 0.8 + u_drift * 0.02; p.z += cos(u_zeit * 0.05 + s * 13.0) * 1.3; }
     vec3 rel = mod(p - u_cam + 8.0, 16.0) - 8.0;                       // endloses Wasser um die Kamera
     vec3 w = u_cam + rel;
     float rand = max(abs(rel.x), max(abs(rel.y), abs(rel.z)));
     float dist = length(rel);
-    float radius = typ < 0.5 ? mix(0.008, 0.024, fract(s * 5.3)) : (typ < 1.5 ? mix(0.014, 0.04, fract(s * 5.3)) : mix(0.02, 0.1, pow(fract(s * 5.3), 2.2)));
-    float unsch = clamp(abs(dist - u_fokus) / (u_fokus * 0.9), 0.0, 1.0);
-    float px = 2.0 * radius * u_focal / max(dist, 0.05) * (1.0 + unsch * 1.4);
+    float radius = typ < 0.5 ? mix(0.008, 0.024, fract(s * 5.3)) : (typ < 1.5 ? mix(0.014, 0.04, fract(s * 5.3)) : (typ < 2.5 ? mix(0.02, 0.1, pow(fract(s * 5.3), 2.2)) : mix(0.1, 0.34, fract(s * 5.3))));
+    float unsch = typ > 2.5 ? 1.0 : clamp(abs(dist - u_fokus) / (u_fokus * 0.9), 0.0, 1.0);
+    float px = 2.0 * radius * u_focal / max(dist, 0.05) * (1.0 + (typ > 2.5 ? 0.0 : unsch * 2.2));
     gl_PointSize = clamp(px, 1.2, u_maxPt);
     gl_Position = u_vp * vec4(w, 1.0);
-    float a = typ < 0.5 ? 1.0 : (typ < 1.5 ? 0.7 : 0.95);
-    a *= 1.0 - 0.45 * unsch;
+    float a = typ < 0.5 ? 1.0 : (typ < 1.5 ? 0.7 : (typ < 2.5 ? 0.95 : 0.75));
+    a *= 1.0 - 0.5 * unsch;
     a *= smoothstep(0.25, 1.1, dist) * exp(-dist * 0.05) * (1.0 - smoothstep(5.5, 8.0, rand));
     a *= clamp(px / 2.2, 0.0, 1.0) * (1.0 - 0.4 * u_tiefe);
     v_typ = typ; v_alpha = a; v_unsch = unsch; v_s = s;
+    if (typ > 2.5) {                                                // unscharfe Lichtflecken: fest vor der Linse, ziehen langsam durchs Bild
+      vec2 n = a_seed.xy * 2.2 - 1.1;
+      n += vec2(sin(u_zeit * 0.05 + s * 20.0) * 0.05, cos(u_zeit * 0.04 + s * 14.0) * 0.04 + u_drift * 0.002);
+      gl_Position = vec4(n, fract(s * 53.1) < 0.4 ? -0.9 : 0.995, 1.0);   // ein Teil vor, ein Teil hinter den Körpern
+      gl_PointSize = clamp(mix(0.04, 0.17, pow(fract(s * 5.3), 1.5)) * u_focal / 2.835, 10.0, u_maxPt);
+      v_alpha = 0.2 * (0.65 + 0.35 * sin(u_zeit * 0.3 + s * 40.0)) * (1.0 - 0.4 * u_tiefe);
+      if (fract(s * 31.7) > 0.3) gl_Position = vec4(3.0, 3.0, 3.0, 1.0);   // nur wenige zugleich im Bild
+    }
   }`;
   // Aussehen einer Luftblase im Punktsprite: heller Rand, Glanzbogen, Glanzpunkt, sonst fast durchsichtig
   const BLASE_GLSL = `
@@ -464,6 +494,10 @@
       a = (1.0 - d) * (1.0 - d) * 0.75 * glitzer; rgb = vec3(0.86, 0.97, 1.0);
     } else if (v_typ < 1.5) {                                       // Plankton: durchscheinende grünliche Flecken
       a = (1.0 - d * d) * 0.5; rgb = vec3(0.62, 0.95, 0.80) * (0.8 + 0.2 * d);
+    } else if (v_typ > 2.5) {                                       // unscharfer Lichtfleck (Bokeh): weiche Scheibe mit hellerem Rand
+      float scheibe = 1.0 - smoothstep(0.7, 1.0, d);
+      float rand = smoothstep(0.5, 0.9, d) * (1.0 - smoothstep(0.9, 1.0, d));
+      a = scheibe * (0.45 + 0.55 * rand); rgb = mix(vec3(0.6, 0.92, 0.98), vec3(0.86, 1.0, 0.94), fract(v_s * 7.7));
     } else {                                                        // Luftblase
       vec4 b = blase(pc, d, weich); rgb = b.rgb; a = b.a;
     }
@@ -559,7 +593,7 @@
       vaoQ = gl.createVertexArray(); gl.bindVertexArray(vaoQ);
       gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
-      teilAnzahl = window.innerWidth < 700 ? 480 : 1100;
+      teilAnzahl = window.innerWidth < 700 ? 600 : 1500;
       const samen = new Float32Array(teilAnzahl * 4);
       let zufall = 12345;
       const rnd = () => { zufall = (zufall * 1664525 + 1013904223) >>> 0; return zufall / 4294967296; };
@@ -567,7 +601,7 @@
       const tb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, tb); gl.bufferData(gl.ARRAY_BUFFER, samen, gl.STATIC_DRAW);
       vaoT = gl.createVertexArray(); gl.bindVertexArray(vaoT);
       gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 0, 0);
-      maxPunkt = Math.min(gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE)[1], 110);
+      maxPunkt = Math.min(gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE)[1], 190);
 
       // Blasen der Bereiche: Kugel, Symbol-Fläche und je eine Textur pro Symbol
       const kg = kugel(40, 28);
@@ -955,19 +989,6 @@
       miniKnopf.classList.toggle('versteckt', daheim); miniKnopf.tabIndex = daheim ? -1 : 0;
     };
 
-    // Kamera am Ziel: bei der Blase, oder ganz am Anfang die Übersicht
-    const start = (pp) => K(pp, S_GIER, S_NICK, 0, [0, 0, 0], S_ZOOM);
-    function bahnBauen(asp, zeit) {
-      // Hineinzoomen zur Blase, verweilen, wieder hinaus zur Übersicht, hinein zur nächsten ...
-      const bahn = [start(0), start(0.06)];
-      STOPPS.forEach(([k, a, b], i) => {
-        const q = blasePose(k, zeit, asp);
-        bahn.push(K(a, q.gier, q.nick, 0, q.f, q.zoom), K(b, q.gier, q.nick, 0, q.f, q.zoom));
-        if (i < STOPPS.length - 1) bahn.push(start((b + STOPPS[i + 1][1]) / 2));
-      });
-      bahn.push(start(0.91), start(1));
-      return bahn;
-    }
 
     if (reduziert) {
       // Ruhig: Standbild, die Blasen sind zugleich das Menü, kein Flug
@@ -996,7 +1017,7 @@
 
     /* --- Animationsschleife --- */
     const hashStart = wahl(window.location.hash.slice(1));
-    const b0 = gueltig(hashStart) ? null : bahnWert(p, bahnBauen(motor.aspekt(), 0));
+    const b0 = gueltig(hashStart) ? null : bahnWert(p, BAHN);
     const q0 = gueltig(hashStart) ? blasePose(hashStart, 0, motor.aspekt()) : null;
     const s0 = b0 || { gier: q0.gier, nick: q0.nick, roll: 0, f: q0.f, zoom: q0.zoom };
     const P = { gier: s0.gier, nick: s0.nick, roll: s0.roll, fx: s0.f[0], fy: s0.f[1], fz: s0.f[2], lz: Math.log(s0.zoom) };
@@ -1030,18 +1051,17 @@
         if (p > 0.02) hinweis.classList.add('weg');
       }
 
-      // Welche Blase ist gerade "dran"? Beim Scrollen die der Reise, im Untermenü die gewählte.
+      // Welche Blase ist gerade "dran"? Nur im Untermenü die gewählte.
       SCHLUESSEL.forEach((k) => {
         let ziel = 0;
         if (modus === 'tafel') ziel = k === aktiv && flug < 0.5 ? 1 : 0;
-        else { const s = STOPPS.find((x) => x[0] === k); ziel = 1 - smooth(0.012, 0.05, Math.max(0, s[1] - p, p - s[2])); }
         fk[k] = glatt(fk[k], ziel, fkV[k], 0.5, dt);
         hover[k] = glatt(hover[k], zielHover === k && modus === 'start' && fk[k] < 0.5 ? 1 : 0, hoverV[k], 0.25, dt);
       });
 
       // Ziel der Kamera: Reise beim Scrollen, Blase im Untermenü. Zwischen beiden fliegt sie weich.
       const asp = motor.aspekt();
-      const zp = modus === 'tafel' ? blasePose(aktiv, t, asp) : bahnWert(p, bahnBauen(asp, t));
+      const zp = modus === 'tafel' ? blasePose(aktiv, t, asp) : bahnWert(p, BAHN);
       const zeit = 0.18 + 0.85 * flug * flug;                 // beim Flug langsam, sonst eng am Ziel
       P.gier = glatt(P.gier, P.gier + umbruch(zp.gier - P.gier), V.gier, zeit * 0.5, dt);   // die Kamera wendet sich schneller zum Ziel als sie hinfährt
       P.nick = glatt(P.nick, zp.nick, V.nick, zeit, dt);
