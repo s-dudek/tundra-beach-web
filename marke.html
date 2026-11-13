@@ -28,7 +28,14 @@
       <canvas class="marke3d" id="marke3d" role="img" aria-label="Tundra Beach unter Wasser: die Bildmarke in 3D. Ziehen dreht sie, Scrollen schaut nach unten: dort schweben die Blasen zu Wasserstand, Wetter, Kalender und Kontakt."></canvas>
 
       <div class="blasen" id="blasen"></div>
-      <p class="hinweis" id="hinweis" aria-hidden="true">Scrollen zum Eintauchen &middot; Ziehen zum Drehen</p>
+      <button class="runter" id="runter" type="button" tabindex="-1" aria-label="Nach unten scrollen zu den Bereichen">Scroll down <span aria-hidden="true">&darr;</span></button>
+      <!-- Menü für die ruhige Variante (reduzierte Bewegung): ohne Flug direkt zu den Bereichen -->
+      <nav class="menue" id="menue" aria-label="Bereiche">
+        <button type="button" data-ziel="wasserstand">Wasserstand</button>
+        <button type="button" data-ziel="wetter">Wetter</button>
+        <button type="button" data-ziel="kalender">Kalender</button>
+        <button type="button" data-ziel="kontakt">Kontakt</button>
+      </nav>
       <button class="nachoben" id="nachoben" type="button" tabindex="-1" aria-label="Nach oben zum Anfang"><span aria-hidden="true">&uarr;</span> To the top</button>
     </div>
   </main>
@@ -50,6 +57,7 @@
   </nav>
 
   <script src="geometrie.js"></script>
+  <script src="schrift3d.js"></script>
   <script src="daten.js"></script>
   <script src="symbole.js"></script>
   <script src="marke3d.js" defer></script>

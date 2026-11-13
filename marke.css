@@ -24,7 +24,7 @@ button{ font: inherit; color: inherit; }
 .titel{ margin: 0; text-align: center; text-shadow: 0 2px 14px rgba(0, 30, 50, .55); }
 .titel span{ display: block; font-size: clamp(14px, 1.7vw, 22px); font-weight: 500; letter-spacing: .3em; text-transform: uppercase; opacity: .92; }
 .titel strong{ display: block; font-size: clamp(36px, 6.4vw, 84px); font-weight: 700; letter-spacing: .01em; line-height: 1.05; }
-.marke3d, .blasen, .nachoben{ display: none; }
+.marke3d, .blasen, .nachoben, .runter, .menue{ display: none; }
 .daten{ display: grid; gap: 18px; width: min(560px, 92vw); margin: 0 auto; padding: 24px 0 110px; }
 .daten article{ background: rgba(255, 255, 255, .92); color: var(--ink); border-radius: 16px; padding: 18px 22px; }
 .daten h2{ margin: 0 0 8px; font-size: 1.05rem; }
@@ -37,7 +37,7 @@ button{ font: inherit; color: inherit; }
 .ist-3d .tour{ height: 600svh; }
 .ist-3d.ruhig .tour{ height: 100svh; }
 .ist-3d .flach{ display: none; }
-.ist-3d .titel{ position: fixed; left: 0; top: 0; z-index: 5; width: min(92vw, 900px); opacity: 0; pointer-events: none; will-change: transform, opacity; }
+.ist-3d .titel{ position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }   /* 3D zeigt den Titel selbst, hier nur für Screenreader */
 .ist-3d .daten{ position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); }
 .ist-3d .marke3d{
   display: block; position: absolute; inset: 0; width: 100%; height: 100%;
@@ -122,16 +122,26 @@ button{ font: inherit; color: inherit; }
 .zurueck:hover, .zurueck:focus-visible{ background: rgba(255, 255, 255, .24); outline: none; }
 .untermenue .zurueck{ opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
 
-.hinweis{
-  position: absolute; left: 0; right: 0; bottom: clamp(48px, 9svh, 84px); margin: 0; text-align: center;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-  font-size: clamp(9px, 1.2vw, 12px); letter-spacing: .12em; text-transform: uppercase; opacity: 0;
-  padding: 0 12px; pointer-events: none; color: #fff; text-shadow: 0 1px 8px rgba(0, 20, 40, .6);
+/* Scroll down: unten in der Mitte, fährt beim Klick automatisch nach unten */
+.ist-3d .runter{
+  display: block; position: fixed; z-index: 7; left: 50%; bottom: clamp(52px, 9svh, 84px);
+  padding: 10px 22px 11px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+  border: 1px solid rgba(255, 255, 255, .55); background: rgba(6, 42, 68, .45);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); box-shadow: 0 8px 24px rgba(0, 20, 40, .3);
+  font-size: clamp(14px, 1.4vw, 17px); font-weight: 600; letter-spacing: .04em;
+  opacity: 0; transform: translate(-50%, 10px); pointer-events: none; transition: opacity 1.2s ease, transform 1.2s cubic-bezier(.2, .8, .2, 1), background .25s ease;
 }
-.ist-3d .hinweis{ opacity: .8; animation: einblenden 2.4s ease 3.2s both; transition: opacity 1s ease; }
-.ist-3d.ruhig .hinweis{ display: none; }
-.ist-3d .hinweis.weg{ opacity: 0 !important; animation: none; }
-@keyframes einblenden{ from{ opacity: 0; } to{ opacity: .8; } }
+.ist-3d .runter.da{ opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.ist-3d.ruhig .runter{ display: none; }
+.runter span{ display: inline-block; margin-left: 6px; animation: wippen 2.2s ease-in-out infinite; }
+@keyframes wippen{ 50%{ transform: translateY(5px); } }
+.runter:hover, .runter:focus-visible{ background: rgba(255, 255, 255, .24); outline: none; }
+
+/* Menü für die ruhige Variante */
+.ist-3d.ruhig .menue{ display: flex; position: absolute; left: 0; right: 0; bottom: clamp(52px, 9svh, 84px); justify-content: center; gap: 10px; flex-wrap: wrap; padding: 0 12px; }
+.menue[hidden]{ display: none !important; }
+.menue button{ padding: 9px 16px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .55); background: rgba(6, 42, 68, .5); cursor: pointer; font-weight: 600; font-size: 15px; }
+.menue button:hover, .menue button:focus-visible{ background: rgba(255, 255, 255, .22); outline: none; }
 
 .legal-footer{
   position: fixed; left: 0; right: 0; bottom: clamp(14px, 3vh, 28px); z-index: 5;
@@ -144,7 +154,7 @@ button{ font: inherit; color: inherit; }
 .legal-footer span{ opacity: .6; }
 
 @media (prefers-reduced-motion: reduce){
-  .ist-3d .hinweis{ animation: none; }
+  .runter span{ animation: none; }
   .blase-info p{ transition: none; }
   .zurueck{ transition: none; }
 }

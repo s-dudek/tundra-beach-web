@@ -12,12 +12,12 @@
   const wurzel = document.documentElement;
   const tour = document.getElementById('tour');
   const canvas = document.getElementById('marke3d');
-  const hinweis = document.getElementById('hinweis');
+  const runter = document.getElementById('runter');
+  const menue = document.getElementById('menue');
   const miniKnopf = document.getElementById('mini');
   const miniCanvas = document.getElementById('mini3d');
   const blasenHalter = document.getElementById('blasen');
   const zurueck = document.getElementById('zurueck');
-  const titel = document.getElementById('titel');
   const nachoben = document.getElementById('nachoben');
   if (!G || !D || !T || !tour || !canvas) return;
 
@@ -42,14 +42,23 @@
   ];
   const SVG_QUELLE = 'gesamt-4c_web.svg';
 
+  // Wortmarke aus dem Gesamtlogo: je Wort gelbe Platte, dunkler Rand, dunkle Schatten-Buchstaben, blaue Buchstaben obenauf
+  const reihe = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
+  const WORTE = {
+    tundra: [{ nrs: [0], platte: true, unten: -11, fase: 3, glanz: 0.8 }, { nrs: [1], hoehe: 3, fase: 1.1, glanz: 0.9 }, { nrs: reihe(2, 7), hoehe: 6, fase: 0.9, glanz: 0.9 }, { nrs: reihe(8, 13), hoehe: 10, fase: 1.3, glanz: 1.0 }],
+    beach: [{ nrs: [14], platte: true, unten: -11, fase: 3, glanz: 0.8 }, { nrs: [15], hoehe: 3, fase: 1.1, glanz: 0.9 }, { nrs: reihe(16, 20), hoehe: 6, fase: 0.9, glanz: 0.9 }, { nrs: reihe(21, 25), hoehe: 10, fase: 1.3, glanz: 1.0 }],
+  };
+  const SCHRIFT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+  const WILL_H = 0.3;                                               // Höhe der Großbuchstaben von "Willkommen bei" in Weltmaßen
+  let titelMasse = null;                                            // Maße der drei Titelteile {tundra, beach, willkommen}: b = Breite, h = Höhe
+
   /* ---------- Bereiche als Blasen im Wasser ---------- */
   // Oben steht die Marke mit der Begrüßung. Beim Scrollen schaut die Kamera nach unten (sie sinkt im Wasser):
   // darunter schweben die vier Blasen, ganz unten wartet "To the top".
-  const S_GIER = -18; const S_NICK = 6; const S_ZOOM = 1.05;       // Anfangsperspektive: ganze Marke im Bild
+  const S_GIER = -18; const S_NICK = 6; const S_ZOOM = 1.0;        // Anfangsperspektive (Richtung und Bezugszoom); Ausschnitt: startPose
   const G_GIER = -8; const G_NICK = 16;                             // Blick auf die Blasen (von oben, etwas nach unten geneigt)
   const GRUPPE = [0, -6.2, 0];                                      // Mitte der vier Blasen
   const UNTEN = [0, -8.9, 0];                                       // Ende der Reise
-  const TITEL_ANKER = [0, 1.28, 0];                                 // Begrüßung steht über der Marke
   const BLASE_R = 0.42;                                             // Radius einer Blase (die Marke ist 2 hoch)
   // Lage der Blasen um GRUPPE: [rechts, hoch, Tiefe] für Querformat (quer) und Hochformat (hoch)
   const BLASEN = {
@@ -133,6 +142,7 @@
       return new Float32Array([s[0], v[0], -f[0], 0, s[1], v[1], -f[1], 0, s[2], v[2], -f[2], 0,
         -(s[0] * e[0] + s[1] * e[1] + s[2] * e[2]), -(v[0] * e[0] + v[1] * e[1] + v[2] * e[2]), f[0] * e[0] + f[1] * e[1] + f[2] * e[2], 1]);
     },
+    skaliere(k) { return new Float32Array([k, 0, 0, 0, 0, k, 0, 0, 0, 0, k, 0, 0, 0, 0, 1]); },
     verschieben(x, y, z) { return new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, x, y, z, 1]); },
     dreheX(a) { const c = Math.cos(a); const s = Math.sin(a); return new Float32Array([1, 0, 0, 0, 0, c, s, 0, 0, -s, c, 0, 0, 0, 0, 1]); },
     dreheY(a) { const c = Math.cos(a); const s = Math.sin(a); return new Float32Array([c, 0, -s, 0, 0, 1, 0, 0, s, 0, c, 0, 0, 0, 0, 1]); },
@@ -162,10 +172,41 @@
     const zoom = Math.min((halbH * asp) / (x + 0.65), halbH / (y + BLASE_R + 0.5));
     return { gier: G_GIER, nick: G_NICK, roll: 0, f: GRUPPE, zoom };
   }
-  // Die Bahn hängt vom Seitenverhältnis ab (damit die Gruppe in jedes Fenster passt)
+  // Titel über der Marke: Querformat "Willkommen bei" über "Tundra Beach" in einer Zeile, Hochformat "Beach" unter "Tundra"
+  function titelLage(asp) {
+    if (!titelMasse) return { teile: [], oben: 1.0 };
+    const m = titelMasse; const halbH = Math.max(2.2, 1.7 / asp); const sichtB = (2 * halbH * asp) / 1.0;
+    const teile = []; const basis = 1.22;                              // Unterkante der Wortmarke; die Marke reicht bis 1
+    let oben = basis;
+    if (asp >= 1.15) {
+      const luecke = 0.45; const gesamt = m.tundra.b + luecke + m.beach.b;
+      const k = Math.min(0.7, (0.8 * sichtB) / gesamt); const hr = Math.max(m.tundra.h, m.beach.h) * k;
+      teile.push({ key: 'tundra', x: -gesamt * k / 2 + m.tundra.b * k / 2, y: basis + hr / 2, k });
+      teile.push({ key: 'beach', x: gesamt * k / 2 - m.beach.b * k / 2, y: basis + hr / 2, k });
+      oben = basis + hr;
+    } else {
+      const k = Math.min(0.8, (0.9 * sichtB) / Math.max(m.tundra.b, m.beach.b));
+      teile.push({ key: 'beach', x: 0, y: basis + m.beach.h * k / 2, k });
+      teile.push({ key: 'tundra', x: 0, y: basis + m.beach.h * k + 0.1 + m.tundra.h * k / 2, k });
+      oben = basis + m.beach.h * k + 0.1 + m.tundra.h * k;
+    }
+    if (m.willkommen) {
+      const k = Math.min(1, (0.8 * sichtB) / m.willkommen.b);
+      teile.push({ key: 'willkommen', x: 0, y: oben + 0.16 + m.willkommen.h * k / 2, k });
+      oben += 0.16 + m.willkommen.h * k;
+    }
+    return { teile, oben };
+  }
+  // Startansicht: Titel und Marke zusammen im Bild, die Marke etwas unterhalb der Mitte, unten Platz für "Scroll down"
+  function startPose(asp) {
+    const halbH = Math.max(2.2, 1.7 / asp); const unten = -1.85; const oben = titelLage(asp).oben + 0.25;
+    return { gier: S_GIER, nick: S_NICK, roll: 0, f: [0, (oben + unten) / 2, 0], zoom: Math.min(1.05, halbH / ((oben - unten) / 2)) };
+  }
+  // Die Bahn hängt vom Seitenverhältnis ab (damit alles in jedes Fenster passt)
   function bahnBauen(asp) {
     const g = gruppePose(asp);
-    const start = (pp) => K(pp, S_GIER, S_NICK, 0, [0, 0, 0], S_ZOOM);
+    const sp = startPose(asp);
+    const start = (pp) => K(pp, sp.gier, sp.nick, 0, sp.f, sp.zoom);
     return [
       start(0), start(0.06),
       K(P_GRUPPE[0], g.gier, g.nick, 0, g.f, g.zoom), K(P_GRUPPE[1], g.gier, g.nick, 0, g.f, g.zoom),
@@ -202,13 +243,13 @@
     return { daten, indizes: new Uint32Array(idx) };
   }
 
-  function koerperAusSvg(text) {
-    // Farben aus dem style-Block lesen und den Block vor dem Parsen entfernen (die Seiten-CSP erlaubt keine Inline-Styles)
+  // SVG lesen: Farben aus dem style-Block holen und den Block vor dem Parsen entfernen (die Seiten-CSP erlaubt keine Inline-Styles);
+  // Maßstab: das Schild der Marke ist 2 Einheiten hoch
+  function svgLesen(text) {
     const farben = {};
     text.replace(/\.(cls-\d+)\s*\{[^}]*?fill:\s*(#[0-9a-fA-F]{3,6})/g, (_, k, f) => { farben[k] = f; });
     const doc = new DOMParser().parseFromString(text.replace(/<style[\s\S]*?<\/style>/, ''), 'image/svg+xml');
     const alle = [...doc.querySelectorAll('path, polygon')];
-
     const platte = alle[SCHICHTEN[0].nr];
     const dPlatte = platte && platte.getAttribute('d');
     if (!dPlatte) throw new Error('Schild nicht gefunden');
@@ -216,25 +257,56 @@
     const xs = kPlatte.map((p) => p[0]); const ys = kPlatte.map((p) => p[1]);
     const minX = Math.min(...xs); const maxX = Math.max(...xs); const minY = Math.min(...ys); const maxY = Math.max(...ys);
     if (maxX - minX < 150 || maxX - minX > 230 || maxY - minY < 150 || maxY - minY > 230) throw new Error('Maße der Marke unerwartet');
-    const mx = (minX + maxX) / 2; const my = (minY + maxY) / 2;
-    const s = 2 / (maxY - minY); // Marke ist 2 Einheiten hoch
+    return { alle, farben, mx: (minX + maxX) / 2, my: (minY + maxY) / 2, s: 2 / (maxY - minY) };
+  }
 
-    const teile = [];
-    SCHICHTEN.forEach((sch, rang) => {
-      const el = alle[sch.nr];
-      const d = el && el.getAttribute('d');
-      if (!d) return;
-      const rgb = linear(farben[el.getAttribute('class')] || '#2c2c2b');
-      const konturen = G.pfadLesen(d, 0.8).map((k) => k.map((p) => [(p[0] - mx) * s, -(p[1] - my) * s]));
-      G.polygone(konturen).forEach((pg) => {
-        const k = G.koerperBauen(pg, {
-          unten: sch.platte ? sch.unten * s : 0, oben: sch.platte ? 0 : sch.hoehe * s,
-          fasenOben: sch.fase * s, fasenUnten: sch.platte ? sch.fase * s : 0, unterseite: !!sch.platte, stufen: 5, abtastung: 0.5 * s,
-        });
-        teile.push({ k, rgb, glanz: sch.glanz, rang });
+  // Eine Schicht (ein Pfad) zu Körpern aufziehen; abb rechnet Zeichnungskoordinaten in Weltmaße um
+  function schichtBauen(l, nr, sch, rang, abb, teile) {
+    const el = l.alle[nr];
+    const d = el && el.getAttribute('d');
+    if (!d) return;
+    const rgb = linear(l.farben[el.getAttribute('class')] || '#2c2c2b');
+    G.polygone(G.pfadLesen(d, 0.8).map((k) => k.map(abb))).forEach((pg) => {
+      const k = G.koerperBauen(pg, {
+        unten: sch.platte ? sch.unten * l.s : 0, oben: sch.platte ? 0 : sch.hoehe * l.s,
+        fasenOben: sch.fase * l.s, fasenUnten: sch.platte ? sch.fase * l.s : 0, unterseite: !!sch.platte, stufen: 5, abtastung: 0.5 * l.s,
       });
+      teile.push({ k, rgb, glanz: sch.glanz, rang });
     });
+  }
+
+  function koerperAusSvg(l) {
+    const teile = [];
+    SCHICHTEN.forEach((sch, rang) => schichtBauen(l, sch.nr, sch, rang, (p) => [(p[0] - l.mx) * l.s, -(p[1] - l.my) * l.s], teile));
     return ausgeben(teile);
+  }
+
+  // Ein Wort der Wortmarke ("Tundra" oder "Beach"), um die Mitte seiner gelben Platte zentriert
+  function wortAusSvg(l, schichten) {
+    const d0 = l.alle[schichten[0].nrs[0]] && l.alle[schichten[0].nrs[0]].getAttribute('d');
+    if (!d0) throw new Error('Wortmarke nicht gefunden');
+    const k0 = G.pfadLesen(d0, 0.8).flat();
+    const xs = k0.map((p) => p[0]); const ys = k0.map((p) => p[1]);
+    const minX = Math.min(...xs); const maxX = Math.max(...xs); const minY = Math.min(...ys); const maxY = Math.max(...ys);
+    const cx = (minX + maxX) / 2; const cy = (minY + maxY) / 2;
+    const teile = [];
+    schichten.forEach((sch, rang) => sch.nrs.forEach((nr) => schichtBauen(l, nr, sch, rang, (p) => [(p[0] - cx) * l.s, -(p[1] - cy) * l.s], teile)));
+    return Object.assign(ausgeben(teile), { b: (maxX - minX) * l.s, h: (maxY - minY) * l.s });
+  }
+
+  // "Willkommen bei" als 3D-Schrift: Umriss der Systemschrift nachgezeichnet und mit abgerundeter Kante aufgezogen
+  function willkommenKoerper() {
+    if (!window.TBSchrift) return null;
+    const kk = window.TBSchrift.konturen('Willkommen bei', `700 220px ${SCHRIFT}`);
+    const sk = WILL_H / kk.kapitale;
+    const kont = kk.konturen.map((k) => k.map((p) => [p[0] * sk, p[1] * sk]));
+    const alle = kont.flat();
+    const ys = alle.map((p) => p[1]); const xs = alle.map((p) => p[0]);
+    const teile = G.polygone(kont).map((pg) => ({
+      k: G.koerperBauen(pg, { unten: -0.07, oben: 0, fasenOben: 0.014, fasenUnten: 0.014, unterseite: true, stufen: 4, abtastung: 0.012 }),
+      rgb: linear('#f1faff'), glanz: 0.95, rang: 0,
+    }));
+    return Object.assign(ausgeben(teile), { b: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) });
   }
 
   // Kugel der Blasen: nur Punkte (die Normale ist der Punkt selbst), Radius 1
@@ -571,7 +643,7 @@
 
   /* ---------- Zeichnen ---------- */
   // mini = Home-Logo oben links: kein Hintergrund, keine Teilchen, keine Blasen, kein Schatten
-  function rendererBauen(zielCanvas, koerper, mini) {
+  function rendererBauen(zielCanvas, koerper, mini, titelTeile) {
     const gl = zielCanvas.getContext('webgl2', { antialias: true, alpha: true, premultipliedAlpha: true, depth: true, stencil: false });
     if (!gl) throw new Error('WebGL2 fehlt');
     const pHaupt = programm(gl, VS, FS);
@@ -585,6 +657,8 @@
       return { vao, anzahl: k.indizes.length };
     };
     const marke = koerperVAO(koerper);
+    const titelVAO = {};
+    if (!mini && titelTeile) Object.keys(titelTeile).forEach((k) => { if (titelTeile[k]) titelVAO[k] = koerperVAO(titelTeile[k]); });
 
     let pTiefe; let pHinter; let pTeil; let pBlase; let pSymbol; let pKlein; let fbo; let tiefe; let vaoQ; let vaoT; let teilAnzahl = 0; let maxPunkt = 64;
     let kugelVAO; let kugelAnzahl = 0; let symbolVAO; let klVAO; let klBuf; let kam = null;
@@ -759,6 +833,15 @@
       gl.drawElements(gl.TRIANGLES, marke.anzahl, gl.UNSIGNED_INT, 0);
 
       if (!mini) {
+        // Titel: "Willkommen bei" und die Wortmarke aus dem Logo, als Körper wie die Marke (ohne Schattenkarte)
+        titelLage(aspekt).teile.forEach((t) => {
+          if (!titelVAO[t.key]) return;
+          gl.useProgram(pHaupt);
+          gemein(pHaupt, mat.mul(mat.verschieben(t.x, t.y, 0), mat.skaliere(t.k)));
+          gl.uniform1f(u(pHaupt, 'u_mitSchatten'), 0);
+          gl.bindVertexArray(titelVAO[t.key].vao); gl.drawElements(gl.TRIANGLES, titelVAO[t.key].anzahl, gl.UNSIGNED_INT, 0);
+        });
+
         // Blasen der Bereiche, von hinten nach vorn: Rückseite, Symbol, Vorderseite
         const ordnung = SCHLUESSEL.map((k) => { const pos = blasenPos(k, z.zeit, aspekt); return { k, pos, d: Math.hypot(pos[0] - cam[0], pos[1] - cam[1], pos[2] - cam[2]) }; }).sort((a, b) => b.d - a.d);
         gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false); gl.enable(gl.CULL_FACE);
@@ -944,7 +1027,7 @@
 
     canvas.addEventListener('pointerdown', (e) => {
       zieht = true; lastX = e.clientX; lastY = e.clientY; startT = performance.now(); bewegt = 0; vGier = 0; vNick = 0;
-      canvas.setPointerCapture(e.pointerId); canvas.classList.add('zieht'); hinweis.classList.add('weg');
+      canvas.setPointerCapture(e.pointerId); canvas.classList.add('zieht');
       if (!reduziert) motor.streuen(e.clientX, e.clientY, 5);
     });
     canvas.addEventListener('pointermove', (e) => {
@@ -992,7 +1075,7 @@
       if (modus === 'start') zurueckP = Math.min(Math.max(p, P_GRUPPE[0]), P_GRUPPE[1]);
       modus = 'tafel'; aktiv = key; if (mitFlug) flug = 1; fahrt = null;
       zielG.w = 0; zielN.w = 0; ruheSeit = 0;
-      wurzel.classList.add('untermenue'); hinweis.classList.add('weg');
+      wurzel.classList.add('untermenue');
       if (!ausHistorie) { history.pushState({ tafel: key }, '', `#${key}`); eigenerEintrag = true; }
       zurueck.hidden = false;
     }
@@ -1012,20 +1095,13 @@
       if (gueltig(k)) oeffnen(k, true, true); else schliessen(true);
     });
 
-    // Begrüßung über der Marke: hängt in der Welt, wandert beim Scrollen mit nach oben aus dem Bild
-    function titelSetzen(sicht) {
-      if (!titel) return;
-      const q = motor.projiziere(TITEL_ANKER);
-      const o = q.w > 0 ? sicht : 0;
-      titel.style.opacity = o > 0.01 ? o.toFixed(3) : '0';
-      if (o > 0.01) titel.style.transform = `translate(${q.x.toFixed(1)}px, ${q.y.toFixed(1)}px) translate(-50%, -100%)`;
-    }
-
-    // "To the top": fährt weich nach oben, jede Eingabe des Besuchers bricht die Fahrt ab
-    if (nachoben) nachoben.addEventListener('click', () => {
-      const von = window.scrollY; if (von < 2) return;
-      fahrt = { von, t0: performance.now(), dauer: (1.8 + 2.4 * von / maxScroll()) * 1000 };
-    });
+    // Automatisch scrollen (Scroll down, To the top): weich beschleunigen und bremsen, jede Eingabe des Besuchers bricht ab
+    const scrollFahrt = (nach) => {
+      const von = window.scrollY; if (Math.abs(nach - von) < 2) return;
+      fahrt = { von, nach, t0: performance.now(), dauer: (1.6 + 2.4 * Math.abs(nach - von) / maxScroll()) * 1000 };
+    };
+    if (nachoben) nachoben.addEventListener('click', () => scrollFahrt(0));
+    if (runter) runter.addEventListener('click', () => scrollFahrt(((P_GRUPPE[0] + P_GRUPPE[1]) / 2) * maxScroll()));
     ['wheel', 'touchstart', 'keydown'].forEach((ev) => window.addEventListener(ev, (e) => { if (!(ev === 'keydown' && e.key === 'Escape')) fahrt = null; }, { passive: true }));
 
     // Das Home-Logo gibt es nur, solange man nicht auf der Startseite ist
@@ -1040,12 +1116,11 @@
       // Ruhig: Standbild, die Blasen sind zugleich das Menü, kein Flug
       const standbild = () => {
         const asp = motor.aspekt();
-        const halbH = Math.max(2.2, 1.7 / asp);
-        const z0 = modus === 'tafel' ? blasePose(aktiv, 0, asp) : { gier: G_GIER + 6, nick: G_NICK - 8, roll: 0, f: [0, -3.1, 0], zoom: Math.min(halbH / 4.9, (halbH * asp) / 3.4) };
+        if (menue) menue.hidden = modus === 'tafel';
+        const z0 = modus === 'tafel' ? blasePose(aktiv, 0, asp) : startPose(asp);
         const fokus = {}; SCHLUESSEL.forEach((k) => { fokus[k] = modus === 'tafel' && k === aktiv ? 1 : 0; });
         motor.zeichnen({ gier: z0.gier + offGier, nick: clamp(z0.nick + offNick, -85, 85), roll: z0.roll, f: z0.f, zoom: z0.zoom, hub: 0, licht: 0, drift: 0, zeit: 0, tiefe: 0.1, fokus });
         beschriften(fokus, z0.zoom, 1);
-        titelSetzen(modus === 'start' ? 1 : 0);
         miniZeigen();
         if (mini) mini.zeichnen({ gier: -20, nick: 6, roll: 0, f: [0, 0, 0], zoom: 2.05, hub: 0, licht: 0, drift: 0, zeit: 0, tiefe: 0 });
       };
@@ -1057,6 +1132,7 @@
       D.beiAenderung(() => standbild());
       zurueck.addEventListener('click', standbild);
       SCHLUESSEL.forEach((k) => blasenEl[k].knopf.addEventListener('click', standbild));
+      if (menue) menue.querySelectorAll('button[data-ziel]').forEach((b) => b.addEventListener('click', () => { oeffnen(b.dataset.ziel, false); standbild(); }));
       if (miniKnopf) miniKnopf.addEventListener('click', () => { schliessen(false); standbild(); });
       const hash0 = wahl(window.location.hash.slice(1)); if (gueltig(hash0)) oeffnen(hash0, false, true);
       standbild();
@@ -1079,7 +1155,6 @@
       window.scrollTo(0, 0);
       p = 0; velP.v = 0; introT = 0; flug = 0;
       offGier = 0; offNick = 0; zielG.w = 0; zielN.w = 0; velG.v = 0; velN.v = 0; ruheSeit = 0;
-      hinweis.classList.remove('weg');
       miniDrehZiel += 360;
     };
     if (miniKnopf) miniKnopf.addEventListener('click', neustart);
@@ -1092,14 +1167,13 @@
       flug = Math.max(0, flug - dt / FLUG);
       if (fahrt) {                                          // "To the top": sanft nach oben scrollen
         const k = clamp((jetzt - fahrt.t0) / fahrt.dauer); const e = k < 0.5 ? 4 * k * k * k : 1 - (-2 * k + 2) ** 3 / 2;
-        window.scrollTo(0, fahrt.von * (1 - e)); if (k >= 1) fahrt = null;
+        window.scrollTo(0, fahrt.von + (fahrt.nach - fahrt.von) * e); if (k >= 1) fahrt = null;
       }
 
       // Scroll-Fortschritt, weich nachgezogen (im Untermenü eingefroren)
       if (modus === 'start') {
         const ziel = festP !== null ? festP : clamp(window.scrollY / maxScroll());
         p = glatt(p, ziel, velP, SCROLL_GLATT, dt);
-        if (p > 0.02) hinweis.classList.add('weg');
       }
 
       // Welche Blase ist gerade "dran"? Nur im Untermenü die gewählte.
@@ -1151,7 +1225,10 @@
 
       // Namen und Inhalte an den Blasen; erst wenn das Intro fast vorbei ist
       beschriften(fk, Math.exp(P.lz), smooth(INTRO * 0.6, INTRO * 0.95, introT));
-      titelSetzen(modus === 'start' ? smooth(INTRO * 0.5, INTRO * 0.9, introT) * (1 - smooth(0.02, 0.09, p)) : 0);
+      if (runter) {
+        const da = modus === 'start' && p < 0.03 && introT > INTRO * 0.85;
+        runter.classList.toggle('da', da); runter.tabIndex = da ? 0 : -1;
+      }
       if (nachoben) {
         const da = modus === 'start' && p > P_UNTEN - 0.05;
         nachoben.classList.toggle('da', da); nachoben.tabIndex = da ? 0 : -1;
@@ -1177,8 +1254,15 @@
   fetch(SVG_QUELLE)
     .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.text(); })
     .then((text) => {
-      const koerper = koerperAusSvg(text);
-      const motor = rendererBauen(canvas, koerper, false);
+      const l = svgLesen(text);
+      const koerper = koerperAusSvg(l);
+      let titelTeile = null;                                  // Titel ist Beiwerk: klappt er nicht, bleibt die Marke allein
+      try {
+        titelTeile = { tundra: wortAusSvg(l, WORTE.tundra), beach: wortAusSvg(l, WORTE.beach), willkommen: null };
+        try { titelTeile.willkommen = willkommenKoerper(); } catch (fehler) { if (window.console) console.warn('Willkommen-Schrift nicht verfügbar:', fehler.message); }
+        titelMasse = { tundra: titelTeile.tundra, beach: titelTeile.beach, willkommen: titelTeile.willkommen };
+      } catch (fehler) { titelTeile = null; titelMasse = null; if (window.console) console.warn('Titel nicht verfügbar:', fehler.message); }
+      const motor = rendererBauen(canvas, koerper, false, titelTeile);
       canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); wurzel.classList.remove('ist-3d'); });
       let mini = null;
       try {
@@ -1189,8 +1273,9 @@
       } catch (fehler) { if (miniKnopf) miniKnopf.hidden = true; }
 
       const intro = festP === null && !reduziert;
+      const sp = startPose(window.innerWidth / Math.max(1, window.innerHeight));
       motor.zeichnen({                                        // erstes Bild passt zum Anfang des Intros
-        gier: S_GIER - (intro ? 342 : 0), nick: S_NICK - (intro ? 12 : 0), roll: 0, f: [0, 0, 0], zoom: S_ZOOM * (intro ? 0.42 : 1),
+        gier: sp.gier - (intro ? 342 : 0), nick: sp.nick - (intro ? 12 : 0), roll: 0, f: sp.f, zoom: sp.zoom * (intro ? 0.42 : 1),
         hub: intro ? 0.95 : 0, licht: intro ? -85 : 0, drift: 0, zeit: 0, tiefe: intro ? 1 : 0.1,
       });
       wurzel.classList.add('ist-3d');
