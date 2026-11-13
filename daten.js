@@ -103,33 +103,64 @@
     melden('wetter'); melden('pegel');
   }
 
-  // Textfassung für Screenreader und für den Fall ohne WebGL
-  function zeilen(key) {
+  const MAIL = 'info@tundra-beach.at';
+  const MAILTEXT = /^[^\s@]+@[^\s@]+\.[a-z]+$/i;
+  const SCHLUESSEL = ['wasserstand', 'wetter', 'kalender', 'kontakt'];
+
+  // Inhalt eines Bereichs: gross = die Hauptzahl, zeilen = Erklärung, klein = Stand und Quelle
+  function inhalt(key) {
     const z = zustand;
-    if (key === 'uhr') return [`${z.uhr.zeit} Uhr`, z.uhr.datum, 'Lienz, Osttirol'];
-    if (key === 'kalender') return [z.kalender.titel, `Heute ist der ${z.kalender.heute}.`];
-    if (key === 'wetter') return z.wetter
-      ? [`${z.wetter.temperatur}, ${z.wetter.text}`, `Gefühlt ${z.wetter.gefuehlt}`, `Wind ${z.wetter.wind}`, `Luftfeuchte ${z.wetter.feuchte}`, `Niederschlag ${z.wetter.regen}`, z.wetter.stand, 'Quelle: Open-Meteo.com']
-      : ['Keine Daten'];
-    if (key === 'wasserstand') return z.pegel
-      ? [`${z.pegel.wert} cm, ${z.pegel.tendenz}`, `Wassertemperatur ${z.pegel.temperatur}`, z.pegel.ort, z.pegel.stand, 'Quelle: Land Tirol, Hydro Online']
-      : ['Keine Daten'];
-    return [];
+    const leer = { gross: 'Keine Daten', zeilen: [], klein: [] };
+    if (key === 'kalender') return { gross: z.uhr.zeit, zeilen: [z.uhr.datum], klein: ['Lienz, Osttirol'] };
+    if (key === 'kontakt') return { gross: MAIL, zeilen: ['Flaschenpost per E-Mail', 'Tundra Beach · Lienz, Osttirol'], klein: [] };
+    if (key === 'wetter') {
+      const w = z.wetter;
+      return w ? { gross: w.temperatur, zeilen: [w.text, `Gefühlt ${w.gefuehlt} · Wind ${w.wind}`, `Feuchte ${w.feuchte} · Regen ${w.regen}`], klein: [w.stand, 'Quelle: Open-Meteo.com'] } : leer;
+    }
+    if (key === 'wasserstand') {
+      const q = z.pegel;
+      return q ? { gross: `${q.wert} cm`, zeilen: [q.tendenz, `Wassertemperatur ${q.temperatur}`, q.ort], klein: [q.stand, 'Quelle: Land Tirol, Hydro Online'] } : leer;
+    }
+    return { gross: '', zeilen: [], klein: [] };
+  }
+
+  // Textfassung für Screenreader und für den Fall ohne WebGL
+  const zeilen = (key) => { const i = inhalt(key); return [i.gross, ...i.zeilen, ...i.klein].filter(Boolean); };
+
+  // Inhalt in ein Element schreiben. Vorhandene Absätze werden nur bei Änderung angefasst (die Uhr tickt jede Sekunde).
+  function einbauen(ziel, key) {
+    const i = inhalt(key);
+    const eintraege = [];
+    if (i.gross) eintraege.push(['gross', i.gross]);
+    i.zeilen.forEach((t) => eintraege.push(['zeile', t]));
+    i.klein.forEach((t) => eintraege.push(['klein', t]));
+    const alt = [...ziel.children];
+    if (alt.length !== eintraege.length || alt.some((el, n) => el.dataset.art !== eintraege[n][0])) {
+      ziel.replaceChildren(...eintraege.map(([art]) => { const p = document.createElement('p'); p.dataset.art = art; p.className = art; return p; }));
+    }
+    [...ziel.children].forEach((p, n) => {
+      const [art, text] = eintraege[n];
+      p.classList.toggle('lang', art === 'gross' && text.length > 12);
+      if (p.dataset.text === text) return;
+      p.dataset.text = text;
+      if (MAILTEXT.test(text)) {
+        const a = document.createElement('a'); a.href = `mailto:${text}`; a.textContent = text; p.replaceChildren(a);
+      } else p.textContent = text;
+    });
   }
 
   function textFuellen() {
-    ['wasserstand', 'wetter', 'uhr', 'kalender'].forEach((key) => {
+    SCHLUESSEL.forEach((key) => {
       const ziel = document.getElementById(`d-${key}`);
-      if (!ziel) return;
-      const liste = ziel.querySelector('.zeilen');
-      if (!liste) return;
-      liste.replaceChildren(...zeilen(key).map((t) => { const p = document.createElement('p'); p.textContent = t; return p; }));
+      const liste = ziel && ziel.querySelector('.zeilen');
+      if (liste) einbauen(liste, key);
     });
   }
 
   global.TBDaten = {
     zustand,
     zeilen,
+    einbauen,
     beiAenderung(f) { lauscher.push(f); },
     start() {
       uhrAktualisieren();

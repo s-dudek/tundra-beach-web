@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'">
-<meta name="description" content="Tundra Beach – unter Wasser: die Bildmarke in 3D, Wasserstand, Wetter, Uhr und Kalender.">
+<meta name="description" content="Tundra Beach – unter Wasser: die Bildmarke in 3D und vier Blasen mit Wasserstand, Wetter, Kalender und Kontakt.">
 <link rel="icon" type="image/svg+xml" href="web_bildmarke_tundra-beach.svg">
 <title>Tundra Beach</title>
 <link rel="stylesheet" href="marke.css">
@@ -25,18 +25,10 @@
 
       <!-- Ohne WebGL bleibt die flache Bildmarke stehen. Mit WebGL schwebt sie als 3D-Körper im Wasser. -->
       <img class="flach" src="web_marke-gelb_tundra-beach.svg" alt="Bildmarke von Tundra Beach: ein Schild mit einem Kopf, riesiger Nase, Taucherbrille und Schnorchel">
-      <canvas class="marke3d" id="marke3d" role="img" aria-label="Tundra Beach unter Wasser: die Bildmarke in 3D. Ziehen dreht sie, Scrollen zeigt neue Perspektiven, die Textpunkte führen zu Wasserstand, Wetter, Uhr und Kalender."></canvas>
+      <canvas class="marke3d" id="marke3d" role="img" aria-label="Tundra Beach unter Wasser: die Bildmarke in 3D. Ziehen dreht sie, Scrollen führt von Blase zu Blase: Wasserstand, Wetter, Kalender und Kontakt."></canvas>
 
-      <div class="punkte" id="punkte"></div>
-      <p class="hinweis" id="hinweis" aria-hidden="true">Ziehen zum Drehen &middot; Scrollen zum Eintauchen</p>
-
-      <!-- Menü für die ruhige Variante (reduzierte Bewegung): ohne Flug direkt zu den Tafeln -->
-      <nav class="menue" id="menue" aria-label="Inhalte" hidden>
-        <button type="button" data-ziel="wasserstand">Wasserstand</button>
-        <button type="button" data-ziel="wetter">Wetter</button>
-        <button type="button" data-ziel="uhr">Uhr</button>
-        <button type="button" data-ziel="kalender">Kalender</button>
-      </nav>
+      <div class="blasen" id="blasen"></div>
+      <p class="hinweis" id="hinweis" aria-hidden="true">Blase anklicken &middot; Scrollen zum Eintauchen &middot; Ziehen zum Drehen</p>
     </div>
   </main>
 
@@ -44,8 +36,8 @@
   <section class="daten" id="daten" aria-label="Inhalte">
     <article id="d-wasserstand"><h2>Wasserstand</h2><div class="zeilen"></div></article>
     <article id="d-wetter"><h2>Wetter in Lienz</h2><div class="zeilen"></div></article>
-    <article id="d-uhr"><h2>Uhr</h2><div class="zeilen"></div></article>
-    <article id="d-kalender"><h2>Kalender</h2><div class="zeilen"></div></article>
+    <article id="d-kalender"><h2>Kalender und Uhr</h2><div class="zeilen"></div></article>
+    <article id="d-kontakt"><h2>Kontakt</h2><div class="zeilen"></div></article>
   </section>
 
   <nav class="legal-footer" aria-label="Rechtliches">
@@ -58,7 +50,7 @@
 
   <script src="geometrie.js"></script>
   <script src="daten.js"></script>
-  <script src="tafel.js"></script>
+  <script src="symbole.js"></script>
   <script src="marke3d.js" defer></script>
 </body>
 </html>
