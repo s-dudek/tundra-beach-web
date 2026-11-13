@@ -34,6 +34,7 @@ Webseite für www.tundra-beach.at – Spaßseite eines nicht eingetragenen Verei
 - Lokal testen: `NODE_USE_ENV_PROXY=1 node scripts/live-daten.mjs` (nur nötig hinter einem Proxy).
 
 ## Dateien
+- `3d-export/tundra-beach-logo.glb` – Logo (Wortmarke "Tundra" und "Beach" plus Bildmarke) als 3D-Datei, rund 30 cm × 7 cm, 5 Farben, erzeugt mit `node scripts/logo-3d-export.mjs` aus `gesamt-4c_web.svg` (gleiche Geometrie wie die Seite; Schichten sind eigene Körper, zum 3D-Druck müssten sie vereinigt werden). Nur auf dem Arbeitszweig, nicht auf `main` (nicht öffentlich).
 - `web_wortmarke_tundra-beach.svg` – Schriftzug (zurzeit nicht eingebunden)
 - `web_bildmarke_tundra-beach.svg` – Bildmarke, auch Favicon
 - `web_huette_tundra-beach.svg` – Hütten-Illustration (zurzeit nicht eingebunden, war die Fassade der alten Hütten-Seite)
