@@ -14,8 +14,6 @@
   const canvas = document.getElementById('marke3d');
   const runter = document.getElementById('runter');
   const menue = document.getElementById('menue');
-  const miniKnopf = document.getElementById('mini');
-  const miniCanvas = document.getElementById('mini3d');
   const blasenHalter = document.getElementById('blasen');
   const zurueck = document.getElementById('zurueck');
   const nachoben = document.getElementById('nachoben');
@@ -651,8 +649,7 @@
   }
 
   /* ---------- Zeichnen ---------- */
-  // mini = Home-Logo oben links: kein Hintergrund, keine Teilchen, keine Blasen, kein Schatten
-  function rendererBauen(zielCanvas, koerper, mini, titelTeile) {
+  function rendererBauen(zielCanvas, koerper, titelTeile) {
     const gl = zielCanvas.getContext('webgl2', { antialias: true, alpha: true, premultipliedAlpha: true, depth: true, stencil: false });
     if (!gl) throw new Error('WebGL2 fehlt');
     const pHaupt = programm(gl, VS, FS);
@@ -667,86 +664,84 @@
     };
     const marke = koerperVAO(koerper);
     const titelVAO = {};
-    if (!mini && titelTeile) Object.keys(titelTeile).forEach((k) => { if (titelTeile[k]) titelVAO[k] = koerperVAO(titelTeile[k]); });
+    if (titelTeile) Object.keys(titelTeile).forEach((k) => { if (titelTeile[k]) titelVAO[k] = koerperVAO(titelTeile[k]); });
 
     let pTiefe; let pHinter; let pTeil; let pBlase; let pSymbol; let pKlein; let fbo; let tiefe; let vaoQ; let vaoT; let teilAnzahl = 0; let maxPunkt = 64;
     let kugelVAO; let kugelAnzahl = 0; let symbolVAO; let klVAO; let klBuf; let kam = null;
     const klDaten = new Float32Array(MAX_KLEIN * 5); const kl = [];
     const spiel = []; const spielDaten = new Float32Array(MAX_SPIEL * 7); let spielVAO; let spielBuf; let spielAn = false; let spielTimer = 0; let spielNeu = true; const symbole = {}; const blasenAnsicht = {};
     const SK = 1536;
-    if (!mini) {
-      pTiefe = programm(gl, VS_TIEFE, FS_TIEFE);
-      pHinter = programm(gl, VS_HINTER, FS_HINTER);
-      pTeil = programm(gl, VS_TEILCHEN, FS_TEILCHEN);
-      pBlase = programm(gl, VS_BLASE, FS_BLASE);
-      pSymbol = programm(gl, VS_SYMBOL, FS_SYMBOL);
-      pKlein = programm(gl, VS_KLEIN, FS_KLEIN);
+    pTiefe = programm(gl, VS_TIEFE, FS_TIEFE);
+    pHinter = programm(gl, VS_HINTER, FS_HINTER);
+    pTeil = programm(gl, VS_TEILCHEN, FS_TEILCHEN);
+    pBlase = programm(gl, VS_BLASE, FS_BLASE);
+    pSymbol = programm(gl, VS_SYMBOL, FS_SYMBOL);
+    pKlein = programm(gl, VS_KLEIN, FS_KLEIN);
 
-      tiefe = gl.createTexture();
-      gl.bindTexture(gl.TEXTURE_2D, tiefe);
-      gl.texStorage2D(gl.TEXTURE_2D, 1, gl.DEPTH_COMPONENT24, SK, SK);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    tiefe = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tiefe);
+    gl.texStorage2D(gl.TEXTURE_2D, 1, gl.DEPTH_COMPONENT24, SK, SK);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL);
+    fbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, tiefe, 0);
+    gl.drawBuffers([gl.NONE]); gl.readBuffer(gl.NONE);
+    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error('Schattenkarte nicht möglich');
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+    const quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    vaoQ = gl.createVertexArray(); gl.bindVertexArray(vaoQ);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+    teilAnzahl = window.innerWidth < 700 ? 600 : 1500;
+    const samen = new Float32Array(teilAnzahl * 4);
+    let zufall = 12345;
+    const rnd = () => { zufall = (zufall * 1664525 + 1013904223) >>> 0; return zufall / 4294967296; };
+    for (let i = 0; i < samen.length; i += 1) samen[i] = rnd();
+    const tb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, tb); gl.bufferData(gl.ARRAY_BUFFER, samen, gl.STATIC_DRAW);
+    vaoT = gl.createVertexArray(); gl.bindVertexArray(vaoT);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 0, 0);
+    maxPunkt = Math.min(gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE)[1], 190);
+
+    // Blasen der Bereiche: Kugel, Symbol-Fläche und je eine Textur pro Symbol
+    const kg = kugel(40, 28);
+    kugelVAO = gl.createVertexArray(); gl.bindVertexArray(kugelVAO);
+    const kvb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, kvb); gl.bufferData(gl.ARRAY_BUFFER, kg.pos, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+    const keb = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, keb); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, kg.idx, gl.STATIC_DRAW);
+    kugelAnzahl = kg.idx.length;
+    symbolVAO = gl.createVertexArray(); gl.bindVertexArray(symbolVAO);
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);                       // das Rechteck von oben (-1 bis 1)
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    klVAO = gl.createVertexArray(); gl.bindVertexArray(klVAO);  // Blasen am Zeiger: Ort + Radius, Deckkraft
+    klBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, klBuf); gl.bufferData(gl.ARRAY_BUFFER, klDaten.byteLength, gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 20, 0);
+    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 20, 16);
+    spielVAO = gl.createVertexArray(); gl.bindVertexArray(spielVAO); // Platzblasen: Ort + Radius, Deckkraft, Gold + Platzen
+    spielBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, spielBuf); gl.bufferData(gl.ARRAY_BUFFER, spielDaten.byteLength, gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 28, 0);
+    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 28, 16);
+    gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 28, 20);
+    const aniso = gl.getExtension('EXT_texture_filter_anisotropic');
+    SCHLUESSEL.forEach((key) => {
+      const tx = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tx);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL);
-      fbo = gl.createFramebuffer();
-      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, tiefe, 0);
-      gl.drawBuffers([gl.NONE]); gl.readBuffer(gl.NONE);
-      if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error('Schattenkarte nicht möglich');
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-
-      const quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-      vaoQ = gl.createVertexArray(); gl.bindVertexArray(vaoQ);
-      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-
-      teilAnzahl = window.innerWidth < 700 ? 600 : 1500;
-      const samen = new Float32Array(teilAnzahl * 4);
-      let zufall = 12345;
-      const rnd = () => { zufall = (zufall * 1664525 + 1013904223) >>> 0; return zufall / 4294967296; };
-      for (let i = 0; i < samen.length; i += 1) samen[i] = rnd();
-      const tb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, tb); gl.bufferData(gl.ARRAY_BUFFER, samen, gl.STATIC_DRAW);
-      vaoT = gl.createVertexArray(); gl.bindVertexArray(vaoT);
-      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 0, 0);
-      maxPunkt = Math.min(gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE)[1], 190);
-
-      // Blasen der Bereiche: Kugel, Symbol-Fläche und je eine Textur pro Symbol
-      const kg = kugel(40, 28);
-      kugelVAO = gl.createVertexArray(); gl.bindVertexArray(kugelVAO);
-      const kvb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, kvb); gl.bufferData(gl.ARRAY_BUFFER, kg.pos, gl.STATIC_DRAW);
-      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
-      const keb = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, keb); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, kg.idx, gl.STATIC_DRAW);
-      kugelAnzahl = kg.idx.length;
-      symbolVAO = gl.createVertexArray(); gl.bindVertexArray(symbolVAO);
-      gl.bindBuffer(gl.ARRAY_BUFFER, quad);                       // das Rechteck von oben (-1 bis 1)
-      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-      klVAO = gl.createVertexArray(); gl.bindVertexArray(klVAO);  // Blasen am Zeiger: Ort + Radius, Deckkraft
-      klBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, klBuf); gl.bufferData(gl.ARRAY_BUFFER, klDaten.byteLength, gl.DYNAMIC_DRAW);
-      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 20, 0);
-      gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 20, 16);
-      spielVAO = gl.createVertexArray(); gl.bindVertexArray(spielVAO); // Platzblasen: Ort + Radius, Deckkraft, Gold + Platzen
-      spielBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, spielBuf); gl.bufferData(gl.ARRAY_BUFFER, spielDaten.byteLength, gl.DYNAMIC_DRAW);
-      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 28, 0);
-      gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 28, 16);
-      gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 28, 20);
-      const aniso = gl.getExtension('EXT_texture_filter_anisotropic');
-      SCHLUESSEL.forEach((key) => {
-        const tx = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tx);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        if (aniso) gl.texParameterf(gl.TEXTURE_2D, aniso.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(8, gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
-        const cv = document.createElement('canvas'); cv.width = T.GROESSE; cv.height = T.GROESSE;
-        symbole[key] = { tx, cv };
-      });
-    }
+      if (aniso) gl.texParameterf(gl.TEXTURE_2D, aniso.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(8, gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
+      const cv = document.createElement('canvas'); cv.width = T.GROESSE; cv.height = T.GROESSE;
+      symbole[key] = { tx, cv };
+    });
 
     function symbolAktualisieren(key) {
-      if (mini || !symbole[key]) return;
+      if (!symbole[key]) return;
       const s = symbole[key];
       T.malen(key, s.cv, D.zustand);
       gl.bindTexture(gl.TEXTURE_2D, s.tx);
@@ -755,7 +750,7 @@
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
       gl.generateMipmap(gl.TEXTURE_2D);
     }
-    if (!mini) SCHLUESSEL.forEach(symbolAktualisieren);
+    SCHLUESSEL.forEach(symbolAktualisieren);
 
     const FOV = rad(20);
     const KEY = [-0.4, 0.75, 0.65]; // Licht, in Kamerarichtung gesehen
@@ -792,19 +787,16 @@
       const dichte = 0.024;
       const ident = mat.ident();
 
-      let lichtVP = new Float32Array(16);
-      if (!mini) {
-        // 1) Tiefe der Marke aus Sicht des Lichts (nur die Marke wirft Schatten)
-        lichtVP = mat.mul(mat.ortho(-2.6, 2.6, -2.6, 2.6, 0.5, 11), mat.blick(licht.map((v) => v * 6), [0, 0, 0], [0, 1, 0]));
-        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-        gl.viewport(0, 0, SK, SK);
-        gl.clear(gl.DEPTH_BUFFER_BIT);
-        gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.disable(gl.CULL_FACE); gl.disable(gl.BLEND);
-        gl.useProgram(pTiefe);
-        gl.uniformMatrix4fv(u(pTiefe, 'u_lightVP'), false, lichtVP);
-        gl.bindVertexArray(marke.vao);
-        gl.drawElements(gl.TRIANGLES, marke.anzahl, gl.UNSIGNED_INT, 0);
-      }
+      // 1) Tiefe der Marke aus Sicht des Lichts (nur die Marke wirft Schatten)
+      const lichtVP = mat.mul(mat.ortho(-2.6, 2.6, -2.6, 2.6, 0.5, 11), mat.blick(licht.map((v) => v * 6), [0, 0, 0], [0, 1, 0]));
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.viewport(0, 0, SK, SK);
+      gl.clear(gl.DEPTH_BUFFER_BIT);
+      gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.disable(gl.CULL_FACE); gl.disable(gl.BLEND);
+      gl.useProgram(pTiefe);
+      gl.uniformMatrix4fv(u(pTiefe, 'u_lightVP'), false, lichtVP);
+      gl.bindVertexArray(marke.vao);
+      gl.drawElements(gl.TRIANGLES, marke.anzahl, gl.UNSIGNED_INT, 0);
 
       // 2) Bild
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -813,17 +805,15 @@
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.disable(gl.CULL_FACE); gl.disable(gl.BLEND);
 
-      if (!mini) {
-        gl.depthMask(false);
-        gl.useProgram(pHinter);
-        gl.uniform2f(u(pHinter, 'u_res'), zielCanvas.width, zielCanvas.height);
-        gl.uniform1f(u(pHinter, 'u_zeit'), z.zeit);
-        gl.uniform1f(u(pHinter, 'u_tiefe'), z.tiefe);
-        gl.uniform2f(u(pHinter, 'u_blick'), rad(z.gier) * 0.4, rad(z.nick) * 0.5);
-        gl.bindVertexArray(vaoQ);
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-        gl.depthMask(true);
-      }
+      gl.depthMask(false);
+      gl.useProgram(pHinter);
+      gl.uniform2f(u(pHinter, 'u_res'), zielCanvas.width, zielCanvas.height);
+      gl.uniform1f(u(pHinter, 'u_zeit'), z.zeit);
+      gl.uniform1f(u(pHinter, 'u_tiefe'), z.tiefe);
+      gl.uniform2f(u(pHinter, 'u_blick'), rad(z.gier) * 0.4, rad(z.nick) * 0.5);
+      gl.bindVertexArray(vaoQ);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      gl.depthMask(true);
 
       const gemein = (pr, modell) => {
         gl.uniformMatrix4fv(u(pr, 'u_vp'), false, vp);
@@ -832,8 +822,8 @@
         gl.uniform3fv(u(pr, 'u_light'), licht);
         gl.uniform1f(u(pr, 'u_zeit'), z.zeit);
         gl.uniform3fv(u(pr, 'u_wasser'), wasser);
-        gl.uniform1f(u(pr, 'u_dichte'), mini ? 0.0 : dichte);
-        gl.uniform1f(u(pr, 'u_kaustik'), mini ? 0.35 : 1.0 - z.tiefe * 0.5);
+        gl.uniform1f(u(pr, 'u_dichte'), dichte);
+        gl.uniform1f(u(pr, 'u_kaustik'), 1.0 - z.tiefe * 0.5);
       };
 
       // Bildmarke
@@ -841,110 +831,108 @@
       gemein(pHaupt, ident);
       gl.uniformMatrix4fv(u(pHaupt, 'u_lightVP'), false, lichtVP);
       gl.uniform1f(u(pHaupt, 'u_texel'), 1 / SK);
-      gl.uniform1f(u(pHaupt, 'u_mitSchatten'), mini ? 0 : 1);
-      if (!mini) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tiefe); }
+      gl.uniform1f(u(pHaupt, 'u_mitSchatten'), 1);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tiefe);
       gl.uniform1i(u(pHaupt, 'u_shadow'), 0);
       gl.bindVertexArray(marke.vao);
       gl.drawElements(gl.TRIANGLES, marke.anzahl, gl.UNSIGNED_INT, 0);
 
-      if (!mini) {
-        // Titel: "Willkommen bei" und die Wortmarke aus dem Logo, als Körper wie die Marke (ohne Schattenkarte)
-        titelLage(aspekt).teile.forEach((t) => {
-          if (!titelVAO[t.key]) return;
-          gl.useProgram(pHaupt);
-          gemein(pHaupt, mat.mul(mat.verschieben(t.x, t.y, 0), mat.skaliere(t.k)));
-          gl.uniform1f(u(pHaupt, 'u_mitSchatten'), 0);
-          gl.bindVertexArray(titelVAO[t.key].vao); gl.drawElements(gl.TRIANGLES, titelVAO[t.key].anzahl, gl.UNSIGNED_INT, 0);
-        });
+      // Titel: "Willkommen bei" und die Wortmarke aus dem Logo, als Körper wie die Marke (ohne Schattenkarte)
+      titelLage(aspekt).teile.forEach((t) => {
+        if (!titelVAO[t.key]) return;
+        gl.useProgram(pHaupt);
+        gemein(pHaupt, mat.mul(mat.verschieben(t.x, t.y, 0), mat.skaliere(t.k)));
+        gl.uniform1f(u(pHaupt, 'u_mitSchatten'), 0);
+        gl.bindVertexArray(titelVAO[t.key].vao); gl.drawElements(gl.TRIANGLES, titelVAO[t.key].anzahl, gl.UNSIGNED_INT, 0);
+      });
 
-        // Blasen der Bereiche, von hinten nach vorn: Rückseite, Symbol, Vorderseite
-        const ordnung = SCHLUESSEL.map((k) => { const pos = blasenPos(k, z.zeit, aspekt); return { k, pos, d: Math.hypot(pos[0] - cam[0], pos[1] - cam[1], pos[2] - cam[2]) }; }).sort((a, b) => b.d - a.d);
-        gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false); gl.enable(gl.CULL_FACE);
-        ordnung.forEach(({ k, pos }) => {
-          const fok = (z.fokus && z.fokus[k]) || 0; const hv = (z.hover && z.hover[k]) || 0;
-          const r = BLASE_R * (1 + 0.05 * hv);
-          const huelle = (hinten) => {
-            gl.useProgram(pBlase);
-            gl.uniformMatrix4fv(u(pBlase, 'u_vp'), false, vp);
-            gl.uniform3fv(u(pBlase, 'u_mitte'), pos); gl.uniform1f(u(pBlase, 'u_radius'), r);
-            gl.uniform1f(u(pBlase, 'u_zeit'), z.zeit); gl.uniform1f(u(pBlase, 'u_samen'), SCHLUESSEL.indexOf(k) * 1.7);
-            gl.uniform3fv(u(pBlase, 'u_cam'), cam); gl.uniform3fv(u(pBlase, 'u_light'), licht);
-            gl.uniform3fv(u(pBlase, 'u_wasser'), wasser); gl.uniform1f(u(pBlase, 'u_dichte'), dichte);
-            gl.uniform1f(u(pBlase, 'u_hinten'), hinten ? 1 : 0); gl.uniform1f(u(pBlase, 'u_fokus'), fok); gl.uniform1f(u(pBlase, 'u_hover'), hv);
-            gl.cullFace(hinten ? gl.FRONT : gl.BACK);
-            gl.bindVertexArray(kugelVAO); gl.drawElements(gl.TRIANGLES, kugelAnzahl, gl.UNSIGNED_SHORT, 0);
-          };
-          huelle(true);
-          // Symbol in der Mitte; beim Besuch rückt es nach oben und wird kleiner, darunter steht der Text
-          const halb = r * lerp(0.56, 0.27, fok); const hub = r * lerp(0, 0.52, fok);
-          gl.disable(gl.CULL_FACE);
-          gl.useProgram(pSymbol);
-          gl.uniformMatrix4fv(u(pSymbol, 'u_vp'), false, vp);
-          gl.uniform3f(u(pSymbol, 'u_mitte'), pos[0] + hoch[0] * hub, pos[1] + hoch[1] * hub, pos[2] + hoch[2] * hub);
-          gl.uniform3f(u(pSymbol, 'u_rechts'), rechts[0] * halb, rechts[1] * halb, rechts[2] * halb);
-          gl.uniform3f(u(pSymbol, 'u_hoch'), hoch[0] * halb, hoch[1] * halb, hoch[2] * halb);
-          gl.uniform3fv(u(pSymbol, 'u_cam'), cam); gl.uniform3fv(u(pSymbol, 'u_wasser'), wasser); gl.uniform1f(u(pSymbol, 'u_dichte'), dichte);
-          gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, symbole[k].tx); gl.uniform1i(u(pSymbol, 'u_tex'), 1);
-          gl.bindVertexArray(symbolVAO); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-          gl.enable(gl.CULL_FACE);
-          huelle(false);
-        });
-        gl.disable(gl.CULL_FACE); gl.activeTexture(gl.TEXTURE0);
-        ordnung.forEach(({ k, pos }) => {                       // wo auf dem Bildschirm sitzt welche Blase (für Beschriftung und Antippen)
-          const a = projiziere(pos); const e = projiziere([pos[0] + rechts[0] * BLASE_R, pos[1] + rechts[1] * BLASE_R, pos[2] + rechts[2] * BLASE_R]);
-          blasenAnsicht[k] = { x: a.x, y: a.y, r: Math.hypot(e.x - a.x, e.y - a.y), w: a.w };
-        });
+      // Blasen der Bereiche, von hinten nach vorn: Rückseite, Symbol, Vorderseite
+      const ordnung = SCHLUESSEL.map((k) => { const pos = blasenPos(k, z.zeit, aspekt); return { k, pos, d: Math.hypot(pos[0] - cam[0], pos[1] - cam[1], pos[2] - cam[2]) }; }).sort((a, b) => b.d - a.d);
+      gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false); gl.enable(gl.CULL_FACE);
+      ordnung.forEach(({ k, pos }) => {
+        const fok = (z.fokus && z.fokus[k]) || 0; const hv = (z.hover && z.hover[k]) || 0;
+        const r = BLASE_R * (1 + 0.05 * hv);
+        const huelle = (hinten) => {
+          gl.useProgram(pBlase);
+          gl.uniformMatrix4fv(u(pBlase, 'u_vp'), false, vp);
+          gl.uniform3fv(u(pBlase, 'u_mitte'), pos); gl.uniform1f(u(pBlase, 'u_radius'), r);
+          gl.uniform1f(u(pBlase, 'u_zeit'), z.zeit); gl.uniform1f(u(pBlase, 'u_samen'), SCHLUESSEL.indexOf(k) * 1.7);
+          gl.uniform3fv(u(pBlase, 'u_cam'), cam); gl.uniform3fv(u(pBlase, 'u_light'), licht);
+          gl.uniform3fv(u(pBlase, 'u_wasser'), wasser); gl.uniform1f(u(pBlase, 'u_dichte'), dichte);
+          gl.uniform1f(u(pBlase, 'u_hinten'), hinten ? 1 : 0); gl.uniform1f(u(pBlase, 'u_fokus'), fok); gl.uniform1f(u(pBlase, 'u_hover'), hv);
+          gl.cullFace(hinten ? gl.FRONT : gl.BACK);
+          gl.bindVertexArray(kugelVAO); gl.drawElements(gl.TRIANGLES, kugelAnzahl, gl.UNSIGNED_SHORT, 0);
+        };
+        huelle(true);
+        // Symbol in der Mitte; beim Besuch rückt es nach oben und wird kleiner, darunter steht der Text
+        const halb = r * lerp(0.56, 0.27, fok); const hub = r * lerp(0, 0.52, fok);
+        gl.disable(gl.CULL_FACE);
+        gl.useProgram(pSymbol);
+        gl.uniformMatrix4fv(u(pSymbol, 'u_vp'), false, vp);
+        gl.uniform3f(u(pSymbol, 'u_mitte'), pos[0] + hoch[0] * hub, pos[1] + hoch[1] * hub, pos[2] + hoch[2] * hub);
+        gl.uniform3f(u(pSymbol, 'u_rechts'), rechts[0] * halb, rechts[1] * halb, rechts[2] * halb);
+        gl.uniform3f(u(pSymbol, 'u_hoch'), hoch[0] * halb, hoch[1] * halb, hoch[2] * halb);
+        gl.uniform3fv(u(pSymbol, 'u_cam'), cam); gl.uniform3fv(u(pSymbol, 'u_wasser'), wasser); gl.uniform1f(u(pSymbol, 'u_dichte'), dichte);
+        gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, symbole[k].tx); gl.uniform1i(u(pSymbol, 'u_tex'), 1);
+        gl.bindVertexArray(symbolVAO); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        gl.enable(gl.CULL_FACE);
+        huelle(false);
+      });
+      gl.disable(gl.CULL_FACE); gl.activeTexture(gl.TEXTURE0);
+      ordnung.forEach(({ k, pos }) => {                       // wo auf dem Bildschirm sitzt welche Blase (für Beschriftung und Antippen)
+        const a = projiziere(pos); const e = projiziere([pos[0] + rechts[0] * BLASE_R, pos[1] + rechts[1] * BLASE_R, pos[2] + rechts[2] * BLASE_R]);
+        blasenAnsicht[k] = { x: a.x, y: a.y, r: Math.hypot(e.x - a.x, e.y - a.y), w: a.w };
+      });
 
-        // Teilchen: hinter und vor den Körpern (Tiefentest ohne Schreiben), weich überblendet
-        gl.useProgram(pTeil);
-        gl.uniformMatrix4fv(u(pTeil, 'u_vp'), false, vp);
-        gl.uniform3fv(u(pTeil, 'u_cam'), cam);
-        gl.uniform1f(u(pTeil, 'u_drift'), z.drift);
-        gl.uniform1f(u(pTeil, 'u_zeit'), z.zeit);
-        gl.uniform1f(u(pTeil, 'u_focal'), (zielCanvas.height / 2) / Math.tan(FOV / 2));
-        gl.uniform1f(u(pTeil, 'u_fokus'), abst);
-        gl.uniform1f(u(pTeil, 'u_maxPt'), maxPunkt);
-        gl.uniform1f(u(pTeil, 'u_tiefe'), z.tiefe);
-        gl.uniform3f(u(pTeil, 'u_pose'), rad(z.gier), rad(z.nick), Math.log(z.zoom / S_ZOOM));
-        gl.bindVertexArray(vaoT);
-        gl.drawArrays(gl.POINTS, 0, teilAnzahl);
+      // Teilchen: hinter und vor den Körpern (Tiefentest ohne Schreiben), weich überblendet
+      gl.useProgram(pTeil);
+      gl.uniformMatrix4fv(u(pTeil, 'u_vp'), false, vp);
+      gl.uniform3fv(u(pTeil, 'u_cam'), cam);
+      gl.uniform1f(u(pTeil, 'u_drift'), z.drift);
+      gl.uniform1f(u(pTeil, 'u_zeit'), z.zeit);
+      gl.uniform1f(u(pTeil, 'u_focal'), (zielCanvas.height / 2) / Math.tan(FOV / 2));
+      gl.uniform1f(u(pTeil, 'u_fokus'), abst);
+      gl.uniform1f(u(pTeil, 'u_maxPt'), maxPunkt);
+      gl.uniform1f(u(pTeil, 'u_tiefe'), z.tiefe);
+      gl.uniform3f(u(pTeil, 'u_pose'), rad(z.gier), rad(z.nick), Math.log(z.zoom / S_ZOOM));
+      gl.bindVertexArray(vaoT);
+      gl.drawArrays(gl.POINTS, 0, teilAnzahl);
 
-        // Blasen, die der Zeiger hinterlässt
-        if (kl.length) {
-          kl.forEach((b, i) => {
-            const a = smooth(0, 0.18, b.t) * (1 - smooth(b.leben - 0.6, b.leben, b.t));
-            const wachs = (0.75 + 0.25 * smooth(0, 0.8, b.t)) * (1 + 0.3 * smooth(b.leben - 0.15, b.leben, b.t));
-            klDaten.set([b.p[0], b.p[1], b.p[2], b.r * wachs, a], i * 5);
-          });
-          gl.useProgram(pKlein);
-          gl.uniformMatrix4fv(u(pKlein, 'u_vp'), false, vp);
-          gl.uniform3fv(u(pKlein, 'u_cam'), cam);
-          gl.uniform1f(u(pKlein, 'u_focal'), (zielCanvas.height / 2) / Math.tan(FOV / 2));
-          gl.uniform1f(u(pKlein, 'u_maxPt'), maxPunkt);
-          gl.uniform1f(u(pKlein, 'u_fokus'), abst);
-          gl.bindVertexArray(klVAO); gl.bindBuffer(gl.ARRAY_BUFFER, klBuf);
-          gl.bufferSubData(gl.ARRAY_BUFFER, 0, klDaten, 0, kl.length * 5);
-          gl.drawArrays(gl.POINTS, 0, kl.length);
-        }
-        // Platzblasen zum Anklicken
-        if (spiel.length) {
-          spiel.forEach((b, i) => {
-            const pop = b.popT >= 0 ? Math.min(1, b.popT / 0.34) : 0;
-            const a = b.popT >= 0 ? 1 : smooth(0, 0.5, b.t);
-            spielDaten.set([b.p[0], b.p[1], b.p[2], b.r * (1 + 0.03 * Math.sin(b.t * 3 + b.ph)), a, b.gold ? 1 : 0, pop], i * 7);
-          });
-          gl.useProgram(pKlein);
-          gl.uniformMatrix4fv(u(pKlein, 'u_vp'), false, vp);
-          gl.uniform3fv(u(pKlein, 'u_cam'), cam);
-          gl.uniform1f(u(pKlein, 'u_focal'), (zielCanvas.height / 2) / Math.tan(FOV / 2));
-          gl.uniform1f(u(pKlein, 'u_maxPt'), maxPunkt);
-          gl.uniform1f(u(pKlein, 'u_fokus'), abst);
-          gl.bindVertexArray(spielVAO); gl.bindBuffer(gl.ARRAY_BUFFER, spielBuf);
-          gl.bufferSubData(gl.ARRAY_BUFFER, 0, spielDaten, 0, spiel.length * 7);
-          gl.drawArrays(gl.POINTS, 0, spiel.length);
-        }
-        gl.depthMask(true); gl.disable(gl.BLEND);
+      // Blasen, die der Zeiger hinterlässt
+      if (kl.length) {
+        kl.forEach((b, i) => {
+          const a = smooth(0, 0.18, b.t) * (1 - smooth(b.leben - 0.6, b.leben, b.t));
+          const wachs = (0.75 + 0.25 * smooth(0, 0.8, b.t)) * (1 + 0.3 * smooth(b.leben - 0.15, b.leben, b.t));
+          klDaten.set([b.p[0], b.p[1], b.p[2], b.r * wachs, a], i * 5);
+        });
+        gl.useProgram(pKlein);
+        gl.uniformMatrix4fv(u(pKlein, 'u_vp'), false, vp);
+        gl.uniform3fv(u(pKlein, 'u_cam'), cam);
+        gl.uniform1f(u(pKlein, 'u_focal'), (zielCanvas.height / 2) / Math.tan(FOV / 2));
+        gl.uniform1f(u(pKlein, 'u_maxPt'), maxPunkt);
+        gl.uniform1f(u(pKlein, 'u_fokus'), abst);
+        gl.bindVertexArray(klVAO); gl.bindBuffer(gl.ARRAY_BUFFER, klBuf);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, klDaten, 0, kl.length * 5);
+        gl.drawArrays(gl.POINTS, 0, kl.length);
       }
+      // Platzblasen zum Anklicken
+      if (spiel.length) {
+        spiel.forEach((b, i) => {
+          const pop = b.popT >= 0 ? Math.min(1, b.popT / 0.34) : 0;
+          const a = b.popT >= 0 ? 1 : smooth(0, 0.5, b.t);
+          spielDaten.set([b.p[0], b.p[1], b.p[2], b.r * (1 + 0.03 * Math.sin(b.t * 3 + b.ph)), a, b.gold ? 1 : 0, pop], i * 7);
+        });
+        gl.useProgram(pKlein);
+        gl.uniformMatrix4fv(u(pKlein, 'u_vp'), false, vp);
+        gl.uniform3fv(u(pKlein, 'u_cam'), cam);
+        gl.uniform1f(u(pKlein, 'u_focal'), (zielCanvas.height / 2) / Math.tan(FOV / 2));
+        gl.uniform1f(u(pKlein, 'u_maxPt'), maxPunkt);
+        gl.uniform1f(u(pKlein, 'u_fokus'), abst);
+        gl.bindVertexArray(spielVAO); gl.bindBuffer(gl.ARRAY_BUFFER, spielBuf);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, spielDaten, 0, spiel.length * 7);
+        gl.drawArrays(gl.POINTS, 0, spiel.length);
+      }
+      gl.depthMask(true); gl.disable(gl.BLEND);
     }
 
     // Weltpunkt → CSS-Pixel (für die Beschriftung); w < 0 = hinter der Kamera
@@ -959,7 +947,7 @@
 
     // Blasen am Zeiger: entstehen auf der Blickgeraden des Zeigers, steigen schwankend auf und platzen
     function blasenStreuen(px, py, anzahl) {
-      if (mini || !kam) return;
+      if (!kam) return;
       for (let i = 0; i < anzahl; i += 1) {
         if (kl.length >= MAX_KLEIN) kl.shift();
         const ndx = ((px + (Math.random() - 0.5) * 16) / letzteBreite) * 2 - 1;
@@ -991,8 +979,8 @@
       spiel.push({ p: ort, r: px * proPx, steig: (34 + 56 * Math.random()) * (gold ? 1.5 : 1) * proPx, ph: Math.random() * 6.283, t: 0, popT: -1, weg: 0, gold, rechts: kam.rechts, sx: -999, sy: -999, sr: 0, w: 1 });
     }
     function spielSchritt(dt) {
-      if (mini || !kam || !spielAn) { if (!spielAn) spiel.forEach((b) => { if (b.popT < 0) b.popT = 0; }); }
-      if (mini || !kam) return;
+      if (!kam) return;
+      if (!spielAn) spiel.forEach((b) => { if (b.popT < 0) b.popT = 0; });
       const ziel = window.innerWidth < 700 ? 6 : 9;
       const foc = (letzteHoehe / 2) / Math.tan(FOV / 2);
       for (let i = spiel.length - 1; i >= 0; i -= 1) {
@@ -1039,7 +1027,7 @@
 
 
   /* ---------- Bewegung, Navigation, Blasen ---------- */
-  function laufen(motor, mini) {
+  function laufen(motor) {
     const gueltig = (k) => SCHLUESSEL.includes(k);
     const wahl = (k) => ALIAS[k] || k;
     if ('scrollRestoration' in history) history.scrollRestoration = 'manual';   // Zurück soll oben landen, nicht an der alten Stelle
@@ -1056,7 +1044,6 @@
     let t = 0; let introT = festP === null && !reduziert ? 0 : INTRO;
     const velG = { v: 0 }; const velN = { v: 0 }; const velP = { v: 0 };
     const grenze = () => (modus === 'tafel' ? 30 : 1e9);
-    let neustart = () => {};
     let zeigerX = window.innerWidth * 0.5; let zeigerY = window.innerHeight * 0.5;
 
     // Zustand jeder Blase: fk = wie sehr die Kamera gerade bei ihr ist (0 bis 1), hover = Zeiger darüber
@@ -1205,14 +1192,6 @@
     if (runter) runter.addEventListener('click', () => scrollFahrt(((P_GRUPPE[0] + P_GRUPPE[1]) / 2) * maxScroll()));
     ['wheel', 'touchstart', 'keydown'].forEach((ev) => window.addEventListener(ev, (e) => { if (!(ev === 'keydown' && e.key === 'Escape')) fahrt = null; }, { passive: true }));
 
-    // Das Home-Logo gibt es nur, solange man nicht auf der Startseite ist
-    const miniZeigen = () => {
-      if (!miniKnopf) return;
-      const daheim = modus === 'start' && p < 0.04;
-      miniKnopf.classList.toggle('versteckt', daheim); miniKnopf.tabIndex = daheim ? -1 : 0;
-    };
-
-
     if (reduziert) {
       // Ruhig: Standbild, die Blasen sind zugleich das Menü, kein Flug
       const standbild = () => {
@@ -1222,8 +1201,6 @@
         const fokus = {}; SCHLUESSEL.forEach((k) => { fokus[k] = modus === 'tafel' && k === aktiv ? 1 : 0; });
         motor.zeichnen({ gier: z0.gier + offGier, nick: clamp(z0.nick + offNick, -85, 85), roll: z0.roll, f: z0.f, zoom: z0.zoom, hub: 0, licht: 0, drift: 0, zeit: 0, tiefe: 0.1, fokus });
         beschriften(fokus, z0.zoom, 1);
-        miniZeigen();
-        if (mini) mini.zeichnen({ gier: -20, nick: 6, roll: 0, f: [0, 0, 0], zoom: 2.05, hub: 0, licht: 0, drift: 0, zeit: 0, tiefe: 0 });
       };
       canvas.addEventListener('pointermove', () => { if (zieht) { offGier = zielG.w; offNick = zielN.w; standbild(); } });
       canvas.addEventListener('pointerup', standbild);
@@ -1234,7 +1211,6 @@
       zurueck.addEventListener('click', standbild);
       SCHLUESSEL.forEach((k) => blasenEl[k].knopf.addEventListener('click', standbild));
       if (menue) menue.querySelectorAll('button[data-ziel]').forEach((b) => b.addEventListener('click', () => { oeffnen(b.dataset.ziel, false); standbild(); }));
-      if (miniKnopf) miniKnopf.addEventListener('click', () => { schliessen(false); standbild(); });
       const hash0 = wahl(window.location.hash.slice(1)); if (gueltig(hash0)) oeffnen(hash0, false, true);
       standbild();
       return;
@@ -1247,18 +1223,8 @@
     const s0 = b0 || { gier: q0.gier, nick: q0.nick, roll: 0, f: q0.f, zoom: q0.zoom };
     const P = { gier: s0.gier, nick: s0.nick, roll: s0.roll, fx: s0.f[0], fy: s0.f[1], fz: s0.f[2], lz: Math.log(s0.zoom) };
     const V = { gier: { v: 0 }, nick: { v: 0 }, roll: { v: 0 }, fx: { v: 0 }, fy: { v: 0 }, fz: { v: 0 }, lz: { v: 0 } };
-    const miniG = { v: 0 }; const miniN = { v: 0 }; const miniDrehV = { v: 0 };
     let letzte = performance.now();
-    let drift = 0; let miniGier = -20; let miniNick = 6; let miniDreh = 0; let miniDrehZiel = 0;
-
-    neustart = () => {
-      if (modus === 'tafel') schliessen(false);
-      window.scrollTo(0, 0);
-      p = 0; velP.v = 0; introT = 0; flug = 0;
-      offGier = 0; offNick = 0; zielG.w = 0; zielN.w = 0; velG.v = 0; velN.v = 0; ruheSeit = 0;
-      miniDrehZiel += 360;
-    };
-    if (miniKnopf) miniKnopf.addEventListener('click', neustart);
+    let drift = 0;
 
     // Direkter Einstieg über #wasserstand usw.
     if (gueltig(hashStart)) { introT = INTRO; oeffnen(hashStart, false, true); fk[hashStart] = 1; }
@@ -1335,17 +1301,6 @@
         const da = modus === 'start' && p > P_UNTEN - 0.05;
         nachoben.classList.toggle('da', da); nachoben.tabIndex = da ? 0 : -1;
       }
-      miniZeigen();
-
-      // Home-Logo: bewegt sich nur ganz leicht mit dem Zeiger
-      if (mini && miniKnopf) {
-        const r = miniKnopf.getBoundingClientRect();
-        const dx = zeigerX - (r.left + r.width / 2); const dy = zeigerY - (r.top + r.height / 2);
-        miniGier = glatt(miniGier, -20 + 9 * Math.tanh(dx / 500), miniG, 0.35, dt);
-        miniNick = glatt(miniNick, 6 + 6 * Math.tanh(dy / 400), miniN, 0.35, dt);
-        miniDreh = glatt(miniDreh, miniDrehZiel, miniDrehV, 0.5, dt);
-        mini.zeichnen({ gier: miniGier + miniDreh, nick: miniNick, roll: Math.sin(t * 0.6) * 1.2, f: [0, 0, 0], zoom: 2.05, hub: Math.sin(t * 1.1) * 0.025, licht: 0, drift: 0, zeit: t, tiefe: 0 });
-      }
       requestAnimationFrame(bild);
     };
     requestAnimationFrame(bild);
@@ -1364,15 +1319,8 @@
         try { titelTeile.willkommen = willkommenKoerper(); } catch (fehler) { if (window.console) console.warn('Willkommen-Schrift nicht verfügbar:', fehler.message); }
         titelMasse = { tundra: titelTeile.tundra, beach: titelTeile.beach, willkommen: titelTeile.willkommen };
       } catch (fehler) { titelTeile = null; titelMasse = null; if (window.console) console.warn('Titel nicht verfügbar:', fehler.message); }
-      const motor = rendererBauen(canvas, koerper, false, titelTeile);
+      const motor = rendererBauen(canvas, koerper, titelTeile);
       canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); wurzel.classList.remove('ist-3d'); });
-      let mini = null;
-      try {
-        if (miniCanvas) {
-          mini = rendererBauen(miniCanvas, koerper, true);
-          miniCanvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); if (miniKnopf) miniKnopf.hidden = true; });
-        }
-      } catch (fehler) { if (miniKnopf) miniKnopf.hidden = true; }
 
       const intro = festP === null && !reduziert;
       const sp = startPose(window.innerWidth / Math.max(1, window.innerHeight));
@@ -1382,7 +1330,7 @@
       });
       wurzel.classList.add('ist-3d');
       if (reduziert) wurzel.classList.add('ruhig');
-      laufen(motor, mini);
+      laufen(motor);
     })
     .catch((fehler) => {
       wurzel.classList.remove('ist-3d');

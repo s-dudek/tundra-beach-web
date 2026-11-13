@@ -77,20 +77,6 @@ button{ font: inherit; color: inherit; }
 .blase.offen .blase-info a{ pointer-events: auto; }
 .ist-3d .marke3d.ueber-blase{ cursor: pointer; }
 
-/* Home-Logo oben links */
-.mini{ display: none; }
-.ist-3d .mini{
-  display: block; position: fixed; z-index: 10; left: clamp(10px, 2vw, 22px); top: clamp(10px, 2vw, 22px);
-  width: clamp(56px, 6.5vw, 78px); height: clamp(56px, 6.5vw, 78px); padding: 0; border: 0; border-radius: 50%;
-  background: none; cursor: pointer; -webkit-tap-highlight-color: transparent;
-  transition: transform .4s cubic-bezier(.2, .8, .2, 1), opacity .7s ease;
-}
-.ist-3d .mini[hidden]{ display: none; }
-.ist-3d .mini.versteckt{ opacity: 0; pointer-events: none; transform: scale(.7); }   /* auf der Startseite gibt es das Home-Logo noch nicht */
-.ist-3d .mini:hover{ transform: scale(1.08); }
-.ist-3d .mini:focus-visible{ outline: 2px solid #fff; outline-offset: 4px; }
-.mini canvas{ display: block; width: 100%; height: 100%; pointer-events: none; }
-
 /* Ganz unten: zurück nach oben */
 .ist-3d .nachoben{
   display: block; position: fixed; z-index: 7; left: 50%; bottom: clamp(52px, 9svh, 84px);
