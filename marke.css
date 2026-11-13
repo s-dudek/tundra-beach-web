@@ -6,78 +6,23 @@
 html, body{ margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); }
 body{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; overflow: hidden; }
 img{ display: block; }
-.sprite{ position: absolute; }
 .nur-leser{ position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-.buehne3d{
-  min-height: 100svh; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: clamp(14px, 3.5svh, 34px); padding: 24px 16px clamp(54px, 9svh, 80px);
-  touch-action: none; cursor: grab;
-}
-.buehne3d:active{ cursor: grabbing; }
-.szene3d{ position: relative; perspective: 1500px; }
+.buehne{ min-height: 100svh; display: grid; place-items: center; padding: 24px 16px clamp(54px, 9svh, 80px); }
 
-/* Weicher Schatten unter der schwebenden Plakette */
-.schatten{
-  position: absolute; left: 50%; bottom: calc(var(--b) * -.16);
-  width: calc(var(--b) * .78); height: calc(var(--b) * .1); margin-left: calc(var(--b) * -.39);
-  background: radial-gradient(closest-side, rgba(44,44,43,.22), rgba(44,44,43,0));
-  opacity: 0;
+/* Gesamtlogo: Seitenverhältnis 742,8 : 180,36. Die Bildmarke sitzt bei 40 % bis 65,2 % der Breite. */
+.logo{ position: relative; width: min(92vw, 1000px); aspect-ratio: 742.8 / 180.36; }
+.logo img{ position: absolute; inset: 0; width: 100%; height: 100%; }
+.logo .schrift, .logo .marke3d{ display: none; }
+/* Das Canvas ist 2,2-mal so hoch wie die Marke (Platz zum Drehen) und quadratisch, mittig auf der Marke */
+.logo .marke3d{
+  position: absolute; left: 25.9%; top: -60%; width: 53.4%; height: 220%;
+  pointer-events: none;
 }
-
-/* Die Plakette: gestapelte Scheiben ergeben die Dicke, Vorder- und Rückseite zeigen die Bildmarke */
-.dreh{ transform-style: preserve-3d; will-change: transform; }
-.koerper{
-  position: relative; width: var(--b); aspect-ratio: var(--verhaeltnis);
-  transform-style: preserve-3d;
-  --sp: 1;
-}
-.koerper[hidden]{ display: none; }
-.v-bild{ --verhaeltnis: 188.72 / 181.78; --b: min(66vw, 46svh); --t: calc(var(--b) * .095); }
-.v-wort{ --verhaeltnis: 67.62 / 47.4; --b: min(74vw, 62svh, 640px); --t: calc(var(--b) * .06); }
-.v-gesamt{ --verhaeltnis: 742.8 / 180.36; --b: min(76vw, 860px); --t: calc(var(--b) * .028); }
-.scheiben{ position: absolute; inset: 0; transform-style: preserve-3d; }
-.scheibe, .flaeche{ position: absolute; inset: 0; width: 100%; height: 100%; display: block; overflow: visible; }
-.scheibe{ color: var(--ink); transform: translateZ(calc((var(--i) / 15 - .5) * (var(--t) - 4px) * var(--sp))); }
-.flaeche{ backface-visibility: hidden; }
-.platte{ color: #fff; }
-.platte.dick{ stroke: #fff; stroke-width: 5px; stroke-linejoin: round; }  /* füllt die Innenflächen der Buchstaben */
-.platte.vorne{ transform: translateZ(calc(var(--t) / 2 * var(--sp) - 1px)); }
-.platte.hinten{ transform: rotateY(180deg) translateZ(calc(var(--t) / 2 * var(--sp) - 1px)); }
-.bild.vorne{ transform: translateZ(calc(var(--t) / 2 * var(--sp))); }
-.bild.hinten{ transform: rotateY(180deg) translateZ(calc(var(--t) / 2 * var(--sp))); }
-/* Schnorchel und Brille heben sich als Relief vom Schild ab */
-.relief.schnorchel{ transform: translateZ(calc(var(--t) / 2 * var(--sp) + var(--t) * .22)); }
-.relief.brille{ transform: translateZ(calc(var(--t) / 2 * var(--sp) + var(--t) * .14)); }
-
-/* Luftblasen steigen vom Schnorchel auf */
-.blasen{ position: absolute; inset: 0; transform-style: preserve-3d; transform: translateZ(calc(var(--t) / 2 + var(--t) * .5)); pointer-events: none; }
-.blasen i{
-  position: absolute; left: 14%; top: 6%; width: calc(var(--b) * .035); height: calc(var(--b) * .035);
-  border: 2px solid var(--ink); border-radius: 50%; background: rgba(255,255,255,.7);
-  opacity: 0; animation: aufsteigen 9s ease-out infinite;
-}
-.blasen i:nth-child(1){ --dx: -26px; animation-delay: 6.5s; }
-.blasen i:nth-child(2){ --dx: 10px; width: calc(var(--b) * .024); height: calc(var(--b) * .024); animation-delay: 8.0s; }
-.blasen i:nth-child(3){ --dx: 34px; animation-delay: 9.6s; }
-.blasen i:nth-child(4){ --dx: -8px; width: calc(var(--b) * .045); height: calc(var(--b) * .045); animation-delay: 11.4s; }
-.blasen i:nth-child(5){ --dx: 22px; width: calc(var(--b) * .02); height: calc(var(--b) * .02); animation-delay: 13.0s; }
-.blasen i:nth-child(6){ --dx: -34px; animation-delay: 14.6s; }
-.blasen i:nth-child(7){ --dx: 4px; width: calc(var(--b) * .03); height: calc(var(--b) * .03); animation-delay: 16.2s; }
-@keyframes aufsteigen{
-  0%   { opacity: 0; transform: translate3d(0, 0, 0) scale(.4); }
-  12%  { opacity: .95; }
-  100% { opacity: 0; transform: translate3d(var(--dx), calc(var(--b) * -.22), 0) scale(1.1); }
-}
-
-.wahl{ display: flex; gap: clamp(14px, 3vw, 28px); font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
-.wahl button{
-  appearance: none; background: none; border: 0; border-bottom: 2px solid transparent; padding: 6px 2px; cursor: pointer;
-  font: inherit; font-size: clamp(10px, 1.2vw, 12px); letter-spacing: .16em; text-transform: uppercase; color: var(--ink); opacity: .5;
-  transition: opacity .3s ease, border-color .3s ease;
-}
-.wahl button:hover, .wahl button:focus-visible{ opacity: .85; }
-.wahl button[aria-pressed="true"]{ opacity: 1; border-bottom-color: var(--ink); }
+.logo.ist-3d .voll{ display: none; }
+.logo.ist-3d .schrift{ display: block; animation: erscheinen 3.2s ease-out both; }
+.logo.ist-3d .marke3d{ display: block; }
+@keyframes erscheinen{ from{ opacity: 0; transform: translateY(8px); } to{ opacity: 1; transform: none; } }
 
 .legal-footer{
   position: fixed; left: 0; right: 0; bottom: clamp(14px, 3vh, 28px);
@@ -90,6 +35,5 @@ img{ display: block; }
 .legal-footer span{ opacity: .6; }
 
 @media (prefers-reduced-motion: reduce){
-  .blasen{ display: none; }
-  .buehne3d{ cursor: default; }
+  .logo.ist-3d .schrift{ animation: none; }
 }

@@ -9,7 +9,12 @@ Webseite für www.tundra-beach.at – Spaßseite eines nicht eingetragenen Verei
 
 ## Aktueller Stand
 - Live ist der Platzhalter "Work in Progress" (`index.html`). Die Seite mit dem 3D-Rundgang durch die Hütte liegt als `seite.html` bereit. Sie wurde zurückgenommen, weil sie auf dem Gerät des Auftraggebers "komplett zerschossen" dargestellt wurde (Gerät und Browser unbekannt, im Test-Browser lief sie).
-- Neuer Versuch, noch nicht live: `marke.html` (+ `marke.css`, `marke.js`). Die drei Logos (Bildmarke, Wortmarke, Gesamtlogo) als dicke 3D-Plaketten aus gestapelten Scheiben, mit langsamem Intro (Scheiben fliegen auseinander und setzen sich zusammen), Schwingen, Neigung nach Zeiger/Finger und Drehen per Klick. Auswahl per Knöpfen oder `marke.html#bild|wort|gesamt`. Die Logo-SVGs stecken als `<symbol>` direkt im HTML (Farben als Attribute, damit keine Inline-Styles nötig sind); ändert sich ein Logo, die Symbole neu aus den SVGs erzeugen.
+- Neuer Versuch (nur über `marke.html` erreichbar, nirgends verlinkt): das Gesamtlogo, dessen Bildmarke als echter 3D-Körper in WebGL2 gerendert wird, die Schrift daneben bleibt flach. Aufbau:
+  - `geometrie.js`: SVG-Pfade lesen (Bézier in Strecken), Konturen gleichmäßig abtasten, Polygone mit Löchern bilden, Earcut-Triangulierung (Mapbox, ISC), Körper mit abgerundeter Kante aufziehen. Die Rundung wird pro Punkt auf den freien Platz begrenzt und bei Überschneidungen verkleinert. Läuft auch in Node zum Testen (Flächen-Gegenprobe: Summe der Dreiecke = Polygonfläche).
+  - `marke3d.js`: Schichten der Bildmarke (Pfadnummern in `SCHICHTEN`, Reihenfolge = Malreihenfolge in `gesamt-4c_web.svg`, hinten nach vorn) mit Höhen und Fasen, Shader mit Spiegelung, Glanz, Schattenkarte, weichem Schatten darunter. Intro (8 s): Schichten fliegen auseinander und setzen sich zusammen. Danach langsames Schwingen, Neigung nach Zeiger/Finger, Tippen = einmal langsam drehen. Bei `prefers-reduced-motion` nur ein ruhiges 3D-Standbild.
+  - `web_gesamt-schrift_tundra-beach.svg`: das Gesamtlogo ohne die Bildmarke (die Pfadelemente 26 bis 38 entfernt). Ändert sich das Gesamtlogo, beides neu erzeugen und die Nummern in `SCHICHTEN` prüfen (das Skript wirft einen Fehler, wenn die Maße der Marke nicht passen).
+  - Sicherheitsnetz: Klappt WebGL2, das Laden oder ein Shader nicht, bleibt das flache Gesamtlogo (`gesamt-4c_web.svg`) stehen. Das Canvas ist 2,2-mal so hoch wie die Marke, damit sie sich drehen kann.
+  - Früherer Versuch mit gestapelten CSS-Scheiben wurde verworfen (sah nie gut aus).
 - `impressum.html`, `datenschutz.html`: Rechtsseiten im gleichen Stil. Der Datenschutztext ist noch nicht auf die Live-Daten abgestimmt (Besucher sprechen nur mit der eigenen Domain, siehe unten).
 
 ## Aufbau der Hütten-Szene (`seite.html`)
