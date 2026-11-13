@@ -4,22 +4,22 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'">
-<meta name="description" content="Tundra Beach – das Gesamtlogo mit der Bildmarke in 3D.">
+<meta name="description" content="Tundra Beach – die Bildmarke in 3D.">
 <link rel="icon" type="image/svg+xml" href="web_bildmarke_tundra-beach.svg">
 <title>Tundra Beach</title>
 <link rel="stylesheet" href="marke.css">
 </head>
 <body>
 
-  <main class="buehne">
-    <h1 class="nur-leser">Tundra Beach</h1>
+  <main class="tour" id="tour">
+    <div class="buehne">
+      <h1 class="nur-leser">Tundra Beach</h1>
 
-    <!-- Ohne WebGL bleibt das flache Gesamtlogo (.voll) stehen. Mit WebGL zeigt .schrift nur die Buchstaben
-         und das Canvas darüber die Bildmarke als 3D-Körper. -->
-    <div class="logo" id="logo">
-      <img class="voll" src="gesamt-4c_web.svg" alt="Tundra Beach, Gesamtlogo mit Bildmarke">
-      <img class="schrift" src="web_gesamt-schrift_tundra-beach.svg" alt="Tundra Beach">
-      <canvas class="marke3d" id="marke3d" aria-hidden="true"></canvas>
+      <!-- Ohne WebGL bleibt die flache Bildmarke stehen. Mit WebGL schwebt sie als 3D-Körper im Canvas. -->
+      <img class="flach" src="web_marke-gelb_tundra-beach.svg" alt="Bildmarke von Tundra Beach: ein Schild mit einem Kopf, riesiger Nase, Taucherbrille und Schnorchel">
+      <canvas class="marke3d" id="marke3d" role="img" aria-label="Bildmarke von Tundra Beach in 3D. Ziehen dreht sie, Scrollen zeigt neue Perspektiven."></canvas>
+
+      <p class="hinweis" id="hinweis" aria-hidden="true">Ziehen zum Drehen &middot; Scrollen für neue Perspektiven</p>
     </div>
   </main>
 

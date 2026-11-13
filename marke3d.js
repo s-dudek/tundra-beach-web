@@ -1,15 +1,23 @@
-// Die Bildmarke aus dem Gesamtlogo als echter 3D-Körper (WebGL2): Pfade der SVG werden zu Körpern mit
-// abgerundeten Kanten aufgezogen, glänzend beleuchtet, mit Spiegelungen und weichen Schatten gezeichnet.
-// Die Schrift daneben bleibt flach. Klappt WebGL nicht, bleibt das flache Gesamtlogo stehen.
+// Die Bildmarke als echter 3D-Körper (WebGL2), frei schwebend. Ziehen dreht sie und lässt sie weich auslaufen,
+// Scrollen fährt die Kamera durch verschiedene Perspektiven (Bahn aus Schlüsselbildern, weich verbunden).
+// Alle Bewegungen laufen über gedämpfte Federn: nichts stoppt abrupt.
+// Klappt WebGL nicht, bleibt die flache gelbe Bildmarke stehen.
 (() => {
   'use strict';
 
   const G = window.TB3D;
-  const logo = document.querySelector('.logo');
+  const wurzel = document.documentElement;
+  const tour = document.getElementById('tour');
   const canvas = document.getElementById('marke3d');
-  if (!G || !logo || !canvas) return;
+  const hinweis = document.getElementById('hinweis');
+  if (!G || !tour || !canvas) return;
 
-  /* ---------- Welche Pfade der SVG gehören zur Bildmarke, und wie hoch sind sie? ---------- */
+  const reduziert = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const abfrage = new URLSearchParams(window.location.search);
+  // ?p=0.5 zeigt direkt eine Perspektive (Vorschau/Prüfung), ohne Intro und ohne Scrollen
+  const festP = abfrage.has('p') ? Math.min(1, Math.max(0, parseFloat(abfrage.get('p')) || 0)) : null;
+
+  /* ---------- Welche Pfade gehören zur Bildmarke, und wie hoch sind sie? ---------- */
   // Nummern = Reihenfolge der path/polygon-Elemente in gesamt-4c_web.svg (Malreihenfolge, hinten nach vorn).
   // hoehe/fase in Einheiten der Zeichnung (die Marke ist etwa 187 breit).
   const SCHICHTEN = [
@@ -25,12 +33,66 @@
   ];
   const SVG_QUELLE = 'gesamt-4c_web.svg';
 
-  /* ---------- Zeiten (langsam, mit Absicht) ---------- */
-  const INTRO = 8;           // Sekunden, bis die Schichten zusammengesetzt sind
-  const DREHUNG = 3.6;       // Sekunden für eine ganze Drehung beim Tippen
-  const reduziert = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  /* ---------- Kamerabahn: die Perspektiven beim Scrollen ----------
+     Eine Zeile = ein Schlüsselbild bei Scroll-Fortschritt p (0 bis 1).
+     gier/nick/roll in Grad, f = Blickpunkt in Welteinheiten (Marke ist 2 hoch), zoom 1 = ganze Marke im Bild,
+     zerleg = Schichten auseinanderziehen. Dazwischen wird mit einer Spline weich übergeblendet. */
+  const BAHN = [
+    { p: 0.00, gier: -18, nick: 6, roll: 0, f: [0, 0, 0], zoom: 1.28, zerleg: 0 },        // Start: schwebt vor dir
+    { p: 0.12, gier: -60, nick: 9, roll: -3, f: [0, 0, 0], zoom: 1.38, zerleg: 0 },       // dreht sich: Tiefe wird sichtbar
+    { p: 0.25, gier: -96, nick: 5, roll: 0, f: [0, 0, 0], zoom: 1.55, zerleg: 0 },        // von der Seite: die Dicke
+    { p: 0.38, gier: -34, nick: 52, roll: 5, f: [0, 0, 0], zoom: 1.3, zerleg: 0 },        // von oben: Nase und Relief
+    { p: 0.52, gier: -12, nick: 4, roll: 0, f: [-0.24, 0.155, 0.1], zoom: 3.4, zerleg: 0 }, // ganz nah: das Auge
+    { p: 0.64, gier: 28, nick: -4, roll: -3, f: [0.55, 0.2, 0.1], zoom: 2.0, zerleg: 0 }, // Nase
+    { p: 0.76, gier: 22, nick: -16, roll: 4, f: [-0.7, 0.48, 0.12], zoom: 2.1, zerleg: 0 }, // Schnorchel
+    { p: 0.88, gier: -148, nick: 12, roll: 0, f: [0, 0, 0], zoom: 1.3, zerleg: 0 },       // schräg von hinten
+    { p: 1.00, gier: -336, nick: 10, roll: 0, f: [0, 0, 0], zoom: 1.1, zerleg: 0.26 },    // Schichten auseinander
+  ];
 
-  /* ---------- Kleine Matrixhelfer (spaltenweise, wie WebGL) ---------- */
+
+  /* ---------- Zeiten ---------- */
+  const INTRO = 7;            // Sekunden, bis die Schichten zusammengesetzt sind
+  const SCROLL_GLATT = 0.62;  // Sekunden: so weich folgt die Kamera dem Scrollen
+  const ZIEH_GLATT = 0.12;    // so weich folgt die Marke dem Finger
+  const AUSLAUF = 0.55;       // Sekunden, die die Marke nach dem Loslassen noch mitgleitet
+  const RUECK_GLATT = 1.6;    // so weich dreht sie nach Ruhe wieder in die Bahn zurück
+  const RUHE = 2.4;           // Sekunden ohne Berühren, bis sie zurückdreht
+
+  /* ---------- Gedämpfte Feder (SmoothDamp): sanfter Start, sanftes Auslaufen, kein Überschwingen ---------- */
+  function glatt(aktuell, ziel, geschw, zeit, dt) {
+    const omega = 2 / Math.max(0.0001, zeit);
+    const x = omega * dt;
+    const e = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
+    const aenderung = aktuell - ziel;
+    const temp = (geschw.v + omega * aenderung) * dt;
+    geschw.v = (geschw.v - omega * temp) * e;
+    return ziel + (aenderung + temp) * e;
+  }
+
+  /* ---------- Spline durch die Schlüsselbilder (Catmull-Rom, Geschwindigkeit bleibt stetig) ---------- */
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+  const easeOut = (t) => 1 - (1 - t) ** 3;
+  const rad = (g) => (g * Math.PI) / 180;
+
+  function catmull(p0, p1, p2, p3, t) {
+    const t2 = t * t; const t3 = t2 * t;
+    return 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
+  }
+  function bahnWert(p) {
+    const n = BAHN.length;
+    let i = 0;
+    while (i < n - 2 && p > BAHN[i + 1].p) i += 1;
+    const a = BAHN[i]; const b = BAHN[i + 1];
+    const t = clamp((p - a.p) / (b.p - a.p));
+    const k0 = BAHN[Math.max(0, i - 1)]; const k3 = BAHN[Math.min(n - 1, i + 2)];
+    const werte = (k) => [k.gier, k.nick, k.roll, k.f[0], k.f[1], k.f[2], Math.log(k.zoom), k.zerleg];
+    const w0 = werte(k0); const w1 = werte(a); const w2 = werte(b); const w3 = werte(k3);
+    const r = w1.map((_, j) => catmull(w0[j], w1[j], w2[j], w3[j], t));
+    return { gier: r[0], nick: r[1], roll: r[2], f: [r[3], r[4], r[5]], zoom: Math.exp(r[6]), zerleg: Math.max(0, r[7]) };
+  }
+
+  /* ---------- Matrizen (spaltenweise, wie WebGL) ---------- */
   const mat = {
     mul(a, b) {
       const o = new Float32Array(16);
@@ -55,11 +117,10 @@
       return new Float32Array([s[0], v[0], -f[0], 0, s[1], v[1], -f[1], 0, s[2], v[2], -f[2], 0,
         -(s[0] * e[0] + s[1] * e[1] + s[2] * e[2]), -(v[0] * e[0] + v[1] * e[1] + v[2] * e[2]), f[0] * e[0] + f[1] * e[1] + f[2] * e[2], 1]);
     },
-    drehung(gier, nick) {
-      const cy = Math.cos(gier); const sy = Math.sin(gier); const cx = Math.cos(nick); const sx = Math.sin(nick);
-      // erst um x (Nicken), dann um y (Gieren): M = Ry * Rx
-      return new Float32Array([cy, sy * sx, -sy * cx, 0, 0, cx, sx, 0, sy, -cy * sx, cy * cx, 0, 0, 0, 0, 1]);
-    },
+    verschieben(x, y, z) { return new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, x, y, z, 1]); },
+    dreheX(a) { const c = Math.cos(a); const s = Math.sin(a); return new Float32Array([1, 0, 0, 0, 0, c, s, 0, 0, -s, c, 0, 0, 0, 0, 1]); },
+    dreheY(a) { const c = Math.cos(a); const s = Math.sin(a); return new Float32Array([c, 0, -s, 0, 0, 1, 0, 0, s, 0, c, 0, 0, 0, 0, 1]); },
+    dreheZ(a) { const c = Math.cos(a); const s = Math.sin(a); return new Float32Array([c, s, 0, 0, -s, c, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]); },
   };
 
   /* ---------- Farben ---------- */
@@ -77,7 +138,7 @@
     const doc = new DOMParser().parseFromString(text.replace(/<style[\s\S]*?<\/style>/, ''), 'image/svg+xml');
     const alle = [...doc.querySelectorAll('path, polygon')];
 
-    // Mitte und Größe der Marke aus dem gelben Schild (Schicht 26)
+    // Mitte und Größe der Marke aus dem gelben Schild
     const platte = alle[SCHICHTEN[0].nr];
     const dPlatte = platte && platte.getAttribute('d');
     if (!dPlatte) throw new Error('Schild nicht gefunden');
@@ -93,8 +154,7 @@
       const el = alle[sch.nr];
       const d = el && el.getAttribute('d');
       if (!d) return;
-      const fill = farben[el.getAttribute('class')] || '#2c2c2b';
-      const rgb = linear(fill);
+      const rgb = linear(farben[el.getAttribute('class')] || '#2c2c2b');
       const konturen = G.pfadLesen(d, 0.8).map((k) => k.map((p) => [(p[0] - mx) * s, -(p[1] - my) * s]));
       G.polygone(konturen).forEach((pg) => {
         const k = G.koerperBauen(pg, {
@@ -104,7 +164,7 @@
           fasenUnten: sch.platte ? sch.fase * s : 0,
           unterseite: !!sch.platte,
           stufen: 5,
-          abtastung: 0.7 * s,
+          abtastung: 0.5 * s,
         });
         const basis = pos.length / 3;
         for (let i = 0; i < k.pos.length / 3; i += 1) {
@@ -124,26 +184,25 @@
       daten.set(farbe.slice(i * 3, i * 3 + 3), i * 12 + 6);
       daten.set(par.slice(i * 3, i * 3 + 3), i * 12 + 9);
     }
-    return { daten, indizes: new Uint32Array(idx), schichten: SCHICHTEN.length };
+    return { daten, indizes: new Uint32Array(idx) };
   }
 
   /* ---------- Shader ---------- */
   const VS = `#version 300 es
   layout(location=0) in vec3 a_pos; layout(location=1) in vec3 a_nor; layout(location=2) in vec3 a_col; layout(location=3) in vec3 a_par;
-  uniform mat4 u_vp; uniform mat4 u_model; uniform mat4 u_lightVP; uniform float u_explode;
+  uniform mat4 u_vp; uniform mat4 u_lightVP; uniform float u_explode;
   out vec3 v_wpos; out vec3 v_nor; out vec3 v_col; out vec3 v_par; out vec4 v_shadow; out vec2 v_xy;
   void main(){
     vec3 p = a_pos; p.z += a_par.z * u_explode;
-    vec4 w = u_model * vec4(p, 1.0);
-    v_wpos = w.xyz; v_nor = mat3(u_model) * a_nor; v_col = a_col; v_par = a_par; v_xy = a_pos.xy;
-    v_shadow = u_lightVP * (w + vec4(normalize(mat3(u_model) * a_nor) * 0.012, 0.0));
-    gl_Position = u_vp * w;
+    v_wpos = p; v_nor = a_nor; v_col = a_col; v_par = a_par; v_xy = a_pos.xy;
+    v_shadow = u_lightVP * vec4(p + a_nor * 0.012, 1.0);
+    gl_Position = u_vp * vec4(p, 1.0);
   }`;
 
   const FS = `#version 300 es
   precision highp float; precision highp sampler2DShadow;
   in vec3 v_wpos; in vec3 v_nor; in vec3 v_col; in vec3 v_par; in vec4 v_shadow; in vec2 v_xy;
-  uniform sampler2DShadow u_shadow; uniform vec3 u_cam; uniform vec3 u_light; uniform mat4 u_model; uniform float u_texel;
+  uniform sampler2DShadow u_shadow; uniform vec3 u_cam; uniform vec3 u_light; uniform float u_texel;
   out vec4 outColor;
   vec3 env(vec3 d){
     d = normalize(d);
@@ -152,17 +211,19 @@
     float b1 = smoothstep(0.80, 0.93, dot(d, normalize(vec3(-0.55, 0.75, 0.55))));
     float b2 = smoothstep(0.86, 0.96, dot(d, normalize(vec3(0.85, 0.15, 0.45))));
     float b3 = smoothstep(0.80, 0.97, dot(d, normalize(vec3(0.1, -0.3, 0.9)))) * 0.5;
+    float b4 = smoothstep(0.82, 0.95, dot(d, normalize(vec3(0.0, 0.6, -0.8)))) * 0.9;
     float rim = smoothstep(0.55, 1.0, dot(d, vec3(0.0, 0.2, -1.0))) * 0.7;
-    return c * 0.85 + vec3(1.0) * b1 * 1.9 + vec3(0.92, 0.96, 1.0) * b2 * 1.1 + vec3(1.0) * b3 + vec3(0.85) * rim;
+    return c * 0.85 + vec3(1.0) * b1 * 1.9 + vec3(0.92, 0.96, 1.0) * b2 * 1.1 + vec3(1.0) * (b3 + b4) + vec3(0.85) * rim;
   }
   void main(){
     vec3 N = normalize(v_nor);
     // Obere Flächen minimal wölben, damit Glanzlichter beim Drehen über sie wandern
-    float kappe = smoothstep(0.85, 1.0, abs(normalize(v_nor).z));
-    vec3 bulge = mat3(u_model) * vec3(v_xy * 0.28, 0.0);
-    N = normalize(N + bulge * kappe * 0.6);
+    float kappe = smoothstep(0.85, 1.0, abs(N.z));
+    N = normalize(N + vec3(v_xy * 0.28, 0.0) * kappe * 0.6);
     vec3 V = normalize(u_cam - v_wpos);
     vec3 L = normalize(u_light);
+    // Rückseiten (Blick von hinten): Normale zum Betrachter drehen, damit sie nicht schwarz werden
+    if (dot(N, V) < 0.0 && abs(v_nor.z) > 0.9) N = -N;
     float ndl = max(dot(N, L), 0.0);
 
     vec3 sc = v_shadow.xyz / v_shadow.w * 0.5 + 0.5;
@@ -189,23 +250,24 @@
     col += refl * (0.022 + 0.38 * fres) * (0.30 + 0.70 * gloss) * ao;
     col += vec3(1.0, 0.99, 0.96) * spec;
 
-    col = col / (1.0 + 0.06 * col);                  // weiche Spitzen
+    col = col / (1.0 + 0.06 * col);
     outColor = vec4(pow(clamp(col, 0.0, 1.0), vec3(1.0 / 2.2)), 1.0);
   }`;
 
   const VS_TIEFE = `#version 300 es
   layout(location=0) in vec3 a_pos; layout(location=3) in vec3 a_par;
-  uniform mat4 u_lightVP; uniform mat4 u_model; uniform float u_explode;
-  void main(){ vec3 p = a_pos; p.z += a_par.z * u_explode; gl_Position = u_lightVP * (u_model * vec4(p, 1.0)); }`;
+  uniform mat4 u_lightVP; uniform float u_explode;
+  void main(){ vec3 p = a_pos; p.z += a_par.z * u_explode; gl_Position = u_lightVP * vec4(p, 1.0); }`;
   const FS_TIEFE = `#version 300 es
   precision mediump float; void main(){}`;
 
-  const VS_SCHATTEN = `#version 300 es
-  in vec2 a; uniform vec4 u_box; out vec2 v;
-  void main(){ v = a; gl_Position = vec4(u_box.xy + a * u_box.zw, 0.0, 1.0); }`;
-  const FS_SCHATTEN = `#version 300 es
+  // Weicher Schatten auf einem unsichtbaren Boden unter der schwebenden Marke (in der Welt, perspektivisch richtig)
+  const VS_BODEN = `#version 300 es
+  layout(location=0) in vec2 a; uniform mat4 u_vp; uniform vec3 u_mitte; uniform float u_gr; out vec2 v;
+  void main(){ v = a; gl_Position = u_vp * vec4(u_mitte.x + a.x * u_gr, u_mitte.y, u_mitte.z + a.y * u_gr * 0.6, 1.0); }`;
+  const FS_BODEN = `#version 300 es
   precision mediump float; in vec2 v; uniform float u_st; out vec4 o;
-  void main(){ float r = dot(v, v); float a = smoothstep(1.0, 0.0, r) * u_st; o = vec4(vec3(0.17, 0.17, 0.17) * a, a); }`;
+  void main(){ float r = dot(v, v); float a = smoothstep(1.0, 0.0, r) * u_st; o = vec4(vec3(0.17) * a, a); }`;
 
   function programm(gl, vs, fs) {
     const bau = (typ, quelle) => {
@@ -221,14 +283,14 @@
     return p;
   }
 
-  /* ---------- Start ---------- */
+  /* ---------- Zeichnen ---------- */
   function starten(koerper) {
     const gl = canvas.getContext('webgl2', { antialias: true, alpha: true, premultipliedAlpha: true, depth: true, stencil: false });
     if (!gl) throw new Error('WebGL2 fehlt');
 
     const pHaupt = programm(gl, VS, FS);
     const pTiefe = programm(gl, VS_TIEFE, FS_TIEFE);
-    const pSchatten = programm(gl, VS_SCHATTEN, FS_SCHATTEN);
+    const pBoden = programm(gl, VS_BODEN, FS_BODEN);
     const u = (p, n) => gl.getUniformLocation(p, n);
 
     const vao = gl.createVertexArray();
@@ -260,7 +322,6 @@
     if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error('Schattenkarte nicht möglich');
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
-    // Weicher Schatten unter der Marke (Viereck im Bildschirm)
     const quad = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, quad);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
@@ -268,24 +329,31 @@
     gl.bindVertexArray(vaoQ);
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
-    // Kamera und Licht (fest im Raum, die Marke dreht sich darin)
-    const FOV = (18 * Math.PI) / 180;
-    const ABST = 2.2 / Math.tan(FOV / 2);          // Bildhöhe = 2,2 × Markenhöhe
-    const cam = [0, 0, ABST];
-    const vp = mat.mul(mat.persp(FOV, 1, ABST - 3, ABST + 3), mat.blick(cam, [0, 0, 0], [0, 1, 0]));
-    const licht = (() => { const l = [-0.45, 0.8, 0.75]; const n = Math.hypot(...l); return l.map((v) => v / n); })();
-    const lichtVP = mat.mul(mat.ortho(-1.9, 1.9, -1.9, 1.9, 0.5, 9), mat.blick(licht.map((v) => v * 5), [0, 0, 0], [0, 1, 0]));
+    const FOV = rad(20);
+    const KEY = (() => { const l = [-0.4, 0.75, 0.65]; const n = Math.hypot(...l); return l.map((v) => v / n); })(); // Licht in Kamerarichtung gesehen
 
     function groesse() {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const b = Math.max(2, Math.round(canvas.clientWidth * dpr));
       const h = Math.max(2, Math.round(canvas.clientHeight * dpr));
       if (canvas.width !== b || canvas.height !== h) { canvas.width = b; canvas.height = h; }
+      return b / h;
     }
 
-    function zeichnen(gier, nick, explode, hub) {
-      groesse();
-      const modell = mat.mul(new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, hub, 0, 1]), mat.drehung(gier, nick));
+    // z: { gier, nick, roll (Grad), f (Blickpunkt), zoom, zerleg, hub (Schweben), schatten }
+    function zeichnen(z) {
+      const aspekt = groesse();
+      const basis = Math.max(2.2, 1.7 / aspekt) / Math.tan(FOV / 2);
+      const abst = basis / z.zoom;
+
+      const f = [z.f[0], z.f[1] + z.hub, z.f[2]];
+      const R = mat.mul(mat.dreheZ(rad(z.roll)), mat.mul(mat.dreheX(rad(z.nick)), mat.dreheY(rad(z.gier))));
+      const ansicht = mat.mul(mat.verschieben(0, 0, -abst), mat.mul(R, mat.verschieben(-f[0], -f[1], -f[2])));
+      const vp = mat.mul(mat.persp(FOV, aspekt, Math.max(0.05, abst - 3.2), abst + 6), ansicht);
+      // Kameraposition und Licht in Weltkoordinaten (R^T)
+      const cam = [f[0] + abst * R[2], f[1] + abst * R[6], f[2] + abst * R[10]];
+      const licht = [0, 1, 2].map((i) => R[i * 4] * KEY[0] + R[i * 4 + 1] * KEY[1] + R[i * 4 + 2] * KEY[2]);
+      const lichtVP = mat.mul(mat.ortho(-2.6, 2.6, -2.6, 2.6, 0.5, 11), mat.blick(licht.map((v) => v * 6), [0, 0, 0], [0, 1, 0]));
 
       // 1) Tiefe aus Sicht des Lichts
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
@@ -294,8 +362,7 @@
       gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.disable(gl.CULL_FACE); gl.disable(gl.BLEND);
       gl.useProgram(pTiefe);
       gl.uniformMatrix4fv(u(pTiefe, 'u_lightVP'), false, lichtVP);
-      gl.uniformMatrix4fv(u(pTiefe, 'u_model'), false, modell);
-      gl.uniform1f(u(pTiefe, 'u_explode'), explode);
+      gl.uniform1f(u(pTiefe, 'u_explode'), z.zerleg);
       gl.bindVertexArray(vao);
       gl.drawElements(gl.TRIANGLES, anzahl, gl.UNSIGNED_INT, 0);
 
@@ -305,68 +372,129 @@
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-      // weicher Schatten darunter (schmaler, wenn die Marke sich zur Seite dreht)
-      const quer = 0.45 + 0.55 * Math.abs(Math.cos(gier));
+      // weicher Schatten auf dem Boden unter der Marke
       gl.disable(gl.DEPTH_TEST); gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-      gl.useProgram(pSchatten);
-      gl.uniform4f(u(pSchatten, 'u_box'), 0, -0.56 - hub * 0.1, 0.36 * quer, 0.07);
-      gl.uniform1f(u(pSchatten, 'u_st'), 0.2 * Math.max(0, 1 - explode * 2));
+      gl.useProgram(pBoden);
+      gl.uniformMatrix4fv(u(pBoden, 'u_vp'), false, vp);
+      gl.uniform3f(u(pBoden, 'u_mitte'), 0, -1.4 - z.hub * 0.4, 0);
+      gl.uniform1f(u(pBoden, 'u_gr'), 1.0);
+      gl.uniform1f(u(pBoden, 'u_st'), 0.17 * z.schatten * Math.max(0, 1 - z.zerleg * 2.5));
       gl.bindVertexArray(vaoQ);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
       gl.disable(gl.BLEND); gl.enable(gl.DEPTH_TEST);
       gl.useProgram(pHaupt);
       gl.uniformMatrix4fv(u(pHaupt, 'u_vp'), false, vp);
-      gl.uniformMatrix4fv(u(pHaupt, 'u_model'), false, modell);
       gl.uniformMatrix4fv(u(pHaupt, 'u_lightVP'), false, lichtVP);
       gl.uniform3fv(u(pHaupt, 'u_cam'), cam);
       gl.uniform3fv(u(pHaupt, 'u_light'), licht);
-      gl.uniform1f(u(pHaupt, 'u_explode'), explode);
+      gl.uniform1f(u(pHaupt, 'u_explode'), z.zerleg);
       gl.uniform1f(u(pHaupt, 'u_texel'), 1 / SK);
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tiefe);
       gl.uniform1i(u(pHaupt, 'u_shadow'), 0);
       gl.bindVertexArray(vao);
       gl.drawElements(gl.TRIANGLES, anzahl, gl.UNSIGNED_INT, 0);
     }
-
-    return { zeichnen, gl };
+    return { zeichnen };
   }
 
-  /* ---------- Bewegung ---------- */
-  const ease = (t) => t * t * (3 - 2 * t);
-  const easeOut = (t) => 1 - (1 - t) ** 3;
-  const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
-  const rad = (g) => (g * Math.PI) / 180;
-
+  /* ---------- Bewegung: Scrollen, Ziehen, Schweben ---------- */
   function laufen(motor) {
+    // Ruhige Variante: ein Standbild, Ziehen dreht ohne Nachlauf
+    let offGier = 0; let offNick = 0;
+    const standbild = () => {
+      const k = bahnWert(festP === null ? 0 : festP);
+      motor.zeichnen({ gier: k.gier + offGier, nick: clamp(k.nick + offNick, -85, 85), roll: k.roll, f: k.f, zoom: k.zoom, zerleg: k.zerleg, hub: 0, schatten: 1 });
+    };
+
+    // Ziehen (Zeiger): horizontal = Gieren, vertikal (nur Maus) = Nicken
+    let zieht = false; let lastX = 0; let lastY = 0; let startX = 0; let startY = 0; let startT = 0; let bewegt = 0;
+    let vGier = 0; let vNick = 0; let letzterZug = 0;
+    const zielG = { w: 0 }; const zielN = { w: 0 };
+    let ruheSeit = 0;
+
+    canvas.addEventListener('pointerdown', (e) => {
+      zieht = true; lastX = startX = e.clientX; lastY = startY = e.clientY; startT = performance.now(); bewegt = 0; vGier = 0; vNick = 0;
+      canvas.setPointerCapture(e.pointerId);
+      canvas.classList.add('zieht');
+      hinweis.classList.add('weg');
+    });
+    canvas.addEventListener('pointermove', (e) => {
+      if (!zieht) return;
+      const dx = e.clientX - lastX; const dy = e.clientY - lastY;
+      lastX = e.clientX; lastY = e.clientY; bewegt += Math.abs(dx) + Math.abs(dy);
+      const dg = dx * 0.45; const dn = e.pointerType === 'mouse' ? dy * 0.3 : 0;
+      zielG.w += dg; zielN.w = clamp(zielN.w + dn, -70, 70);
+      const jetzt = performance.now(); const dtz = Math.max(8, jetzt - letzterZug) / 1000; letzterZug = jetzt;
+      vGier = lerp(vGier, dg / dtz, 0.5); vNick = lerp(vNick, dn / dtz, 0.5);
+    });
+    const loslassen = () => {
+      if (!zieht) return;
+      zieht = false; canvas.classList.remove('zieht');
+      const kurz = bewegt < 6 && performance.now() - startT < 350;
+      if (kurz) zielG.w += 360;                              // Antippen: einmal ganz herum
+      else {
+        const frisch = performance.now() - letzterZug < 90;  // Geschwindigkeit nur, wenn der Finger noch in Bewegung war
+        zielG.w += clamp((frisch ? vGier : 0) * AUSLAUF, -540, 540);   // Schwung, begrenzt
+        zielN.w = clamp(zielN.w + (frisch ? vNick : 0) * AUSLAUF, -70, 70);
+      }
+      ruheSeit = 0;
+    };
+    canvas.addEventListener('pointerup', loslassen);
+    canvas.addEventListener('pointercancel', loslassen);
+
     if (reduziert) {
-      motor.zeichnen(rad(-20), rad(7), 0, 0);
-      window.addEventListener('resize', () => motor.zeichnen(rad(-20), rad(7), 0, 0));
+      canvas.addEventListener('pointermove', () => { if (zieht) { offGier = zielG.w; offNick = zielN.w; standbild(); } });
+      window.addEventListener('resize', standbild);
+      standbild();
       return;
     }
-    let zielX = 0; let zielY = 0; let x = 0; let y = 0;
-    let drehStart = -100;
-    const t0 = performance.now();
-    window.addEventListener('pointermove', (e) => {
-      zielX = (e.clientX / window.innerWidth) * 2 - 1;
-      zielY = (e.clientY / window.innerHeight) * 2 - 1;
-    }, { passive: true });
-    window.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('a')) return;
-      drehStart = (performance.now() - t0) / 1000;
-    });
+
+    const velG = { v: 0 }; const velN = { v: 0 }; const velP = { v: 0 };
+    let p = festP === null ? 0 : festP;
+    let t = 0; let letzte = performance.now();
+    const erste = performance.now();
+
     const bild = (jetzt) => {
-      const t = (jetzt - t0) / 1000;
-      x += (zielX - x) * 0.035;
-      y += (zielY - y) * 0.035;
-      const intro = clamp(t / INTRO);
-      const aus = 1 - easeOut(intro);                       // 1 → 0
-      const drehung = 360 * ease(clamp((t - drehStart) / DREHUNG));
-      const gier = rad(-400 * aus * aus + Math.sin(t * 0.26) * 17 + x * 24 + drehung);
-      const nick = rad(10 * aus + Math.sin(t * 0.19) * 4.5 - y * 12);
-      const explode = 0.34 * aus * aus;                      // Schichten fliegen auseinander und finden zusammen
-      const hub = Math.sin(t * 0.33) * 0.025;                // sanftes Schweben
-      motor.zeichnen(gier, nick, explode, hub);
+      const dt = Math.min(0.05, Math.max(0.001, (jetzt - letzte) / 1000)); letzte = jetzt; t = (jetzt - erste) / 1000;
+
+      // Scroll-Fortschritt, weich nachgezogen
+      let ziel = 0;
+      if (festP !== null) ziel = festP;
+      else {
+        const max = Math.max(1, tour.offsetHeight - window.innerHeight);
+        ziel = clamp(window.scrollY / max);
+      }
+      p = glatt(p, ziel, velP, SCROLL_GLATT, dt);
+      if (p > 0.02) hinweis.classList.add('weg');
+
+      // Ziehen: Marke folgt weich, nach Ruhe dreht sie sanft zurück in die Bahn
+      if (!zieht) {
+        ruheSeit += dt;
+        if (ruheSeit > RUHE && (Math.abs(offGier) > 0.01 || Math.abs(offNick) > 0.01)) {
+          const voll = 360 * Math.round(offGier / 360);      // ganze Umdrehungen sehen gleich aus: ohne Sprung abziehen
+          offGier -= voll; zielG.w -= voll;
+          zielG.w = 0; zielN.w = 0;
+        }
+      }
+      const folg = zieht ? ZIEH_GLATT : (ruheSeit > RUHE ? RUECK_GLATT : AUSLAUF);
+      offGier = glatt(offGier, zielG.w, velG, folg, dt);
+      offNick = glatt(offNick, zielN.w, velN, folg, dt);
+
+      // Intro: Schichten fliegen auseinander und finden zusammen, die Marke dreht sich herein
+      const intro = festP === null ? clamp(t / INTRO) : 1;
+      const aus = 1 - easeOut(intro);
+
+      const k = bahnWert(p);
+      const sanft = 1 / Math.sqrt(k.zoom);                   // beim Heranzoomen schwebt sie weniger
+      const hub = Math.sin(t * 0.85) * 0.035 * sanft;
+      const schwank = Math.sin(t * 0.5) * 1.6 * sanft;
+      motor.zeichnen({
+        gier: k.gier - 400 * aus * aus + offGier + schwank,
+        nick: clamp(k.nick + 10 * aus + offNick + Math.sin(t * 0.37) * 1.2 * sanft, -88, 88),
+        roll: k.roll + Math.sin(t * 0.43) * 0.9 * sanft,
+        f: k.f, zoom: k.zoom, zerleg: Math.max(k.zerleg, 0.34 * aus * aus), hub, schatten: 1 - aus,
+      });
       requestAnimationFrame(bild);
     };
     requestAnimationFrame(bild);
@@ -377,14 +505,16 @@
     .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.text(); })
     .then((text) => {
       const motor = starten(koerperAusSvg(text));
-      canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); logo.classList.remove('ist-3d'); });
-      motor.zeichnen(rad(-20), rad(7), reduziert ? 0 : 0.34, 0); // erstes Bild, dann umschalten
-      logo.classList.add('ist-3d');
+      canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); wurzel.classList.remove('ist-3d'); });
+      const k0 = bahnWert(festP === null ? 0 : festP);
+      const intro = festP === null && !reduziert;       // erstes Bild passt zum Anfang des Intros
+      motor.zeichnen({ gier: k0.gier - (intro ? 400 : 0), nick: k0.nick + (intro ? 10 : 0), roll: k0.roll, f: k0.f, zoom: k0.zoom, zerleg: intro ? 0.34 : k0.zerleg, hub: 0, schatten: intro ? 0 : 1 });
+      wurzel.classList.add('ist-3d');
+      if (reduziert) wurzel.classList.add('ruhig');
       laufen(motor);
     })
     .catch((fehler) => {
-      // Das flache Gesamtlogo bleibt einfach stehen
-      logo.classList.remove('ist-3d');
+      wurzel.classList.remove('ist-3d');
       if (window.console) console.warn('3D-Bildmarke nicht verfügbar:', fehler.message);
     });
 })();

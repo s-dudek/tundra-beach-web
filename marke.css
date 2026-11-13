@@ -3,37 +3,49 @@
   --ink: #2c2c2b;
 }
 *{ box-sizing: border-box; }
-html, body{ margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); }
-body{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; overflow: hidden; }
+html, body{ margin: 0; background: var(--bg); color: var(--ink); }
+body{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
 img{ display: block; }
 .nur-leser{ position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-.buehne{ min-height: 100svh; display: grid; place-items: center; padding: 24px 16px clamp(54px, 9svh, 80px); }
+/* Ohne 3D: eine Bildschirmhöhe, flache Bildmarke in der Mitte */
+.tour{ height: 100svh; }
+.buehne{ position: sticky; top: 0; height: 100svh; display: grid; place-items: center; overflow: hidden; }
+.flach{ width: min(60vw, 52svh, 520px); height: auto; }
+.marke3d{ display: none; }
 
-/* Gesamtlogo: Seitenverhältnis 742,8 : 180,36. Die Bildmarke sitzt bei 40 % bis 65,2 % der Breite. */
-.logo{ position: relative; width: min(92vw, 1000px); aspect-ratio: 742.8 / 180.36; }
-.logo img{ position: absolute; inset: 0; width: 100%; height: 100%; }
-.logo .schrift, .logo .marke3d{ display: none; }
-/* Das Canvas ist 2,2-mal so hoch wie die Marke (Platz zum Drehen) und quadratisch, mittig auf der Marke */
-.logo .marke3d{
-  position: absolute; left: 25.9%; top: -60%; width: 53.4%; height: 220%;
-  pointer-events: none;
+/* Mit 3D: Das Canvas füllt den Bildschirm, die Marke schwebt darin. Die Länge der Seite ist die Länge der Reise. */
+.ist-3d .tour{ height: 800svh; }
+.ist-3d.ruhig .tour{ height: 100svh; }
+.ist-3d .flach{ display: none; }
+.ist-3d .marke3d{
+  display: block; position: absolute; inset: 0; width: 100%; height: 100%;
+  cursor: grab; touch-action: pan-y;      /* senkrecht scrollt die Seite, waagrecht dreht die Marke */
+  -webkit-tap-highlight-color: transparent; outline: none;
 }
-.logo.ist-3d .voll{ display: none; }
-.logo.ist-3d .schrift{ display: block; animation: erscheinen 3.2s ease-out both; }
-.logo.ist-3d .marke3d{ display: block; }
-@keyframes erscheinen{ from{ opacity: 0; transform: translateY(8px); } to{ opacity: 1; transform: none; } }
+.ist-3d .marke3d.zieht{ cursor: grabbing; }
+
+.hinweis{
+  position: absolute; left: 0; right: 0; bottom: clamp(48px, 9svh, 84px); margin: 0; text-align: center;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: clamp(9px, 1.2vw, 12px); letter-spacing: .12em; text-transform: uppercase; opacity: 0;
+  padding: 0 12px; pointer-events: none;
+}
+.ist-3d .hinweis{ opacity: .6; animation: einblenden 2.4s ease 3.2s both; transition: opacity 1s ease; }
+.ist-3d .hinweis.weg{ opacity: 0 !important; animation: none; }
+@keyframes einblenden{ from{ opacity: 0; } to{ opacity: .6; } }
 
 .legal-footer{
-  position: fixed; left: 0; right: 0; bottom: clamp(14px, 3vh, 28px);
+  position: fixed; left: 0; right: 0; bottom: clamp(14px, 3vh, 28px); z-index: 5;
   display: flex; justify-content: center; align-items: center; gap: 10px;
   font-size: clamp(10px, 1.1vw, 12px); letter-spacing: .1em; text-transform: uppercase;
   color: var(--ink); opacity: .6;
+  text-shadow: 0 0 6px #fff, 0 0 3px #fff, 0 0 2px #fff;   /* lesbar auch über der Marke */
 }
 .legal-footer a{ color: inherit; text-decoration: none; border-bottom: 1px solid transparent; transition: border-color .2s ease; }
 .legal-footer a:hover, .legal-footer a:focus-visible{ border-color: currentColor; }
 .legal-footer span{ opacity: .6; }
 
 @media (prefers-reduced-motion: reduce){
-  .logo.ist-3d .schrift{ animation: none; }
+  .ist-3d .hinweis{ animation: none; }
 }

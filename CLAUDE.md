@@ -9,12 +9,12 @@ Webseite für www.tundra-beach.at – Spaßseite eines nicht eingetragenen Verei
 
 ## Aktueller Stand
 - Live ist der Platzhalter "Work in Progress" (`index.html`). Die Seite mit dem 3D-Rundgang durch die Hütte liegt als `seite.html` bereit. Sie wurde zurückgenommen, weil sie auf dem Gerät des Auftraggebers "komplett zerschossen" dargestellt wurde (Gerät und Browser unbekannt, im Test-Browser lief sie).
-- Neuer Versuch (nur über `marke.html` erreichbar, nirgends verlinkt): das Gesamtlogo, dessen Bildmarke als echter 3D-Körper in WebGL2 gerendert wird, die Schrift daneben bleibt flach. Aufbau:
+- Neuer Versuch (nur über `marke.html` erreichbar, nirgends verlinkt): nur die Bildmarke, frei schwebend als echter 3D-Körper in WebGL2, vollflächiges Canvas. Wunsch des Auftraggebers: Marke anklick- und drehbar, beim Scrollen durch verschiedene Perspektiven fahren wie bei aether1, alle Bewegungen sehr weich, nichts stoppt abrupt. Aufbau:
   - `geometrie.js`: SVG-Pfade lesen (Bézier in Strecken), Konturen gleichmäßig abtasten, Polygone mit Löchern bilden, Earcut-Triangulierung (Mapbox, ISC), Körper mit abgerundeter Kante aufziehen. Die Rundung wird pro Punkt auf den freien Platz begrenzt und bei Überschneidungen verkleinert. Läuft auch in Node zum Testen (Flächen-Gegenprobe: Summe der Dreiecke = Polygonfläche).
-  - `marke3d.js`: Schichten der Bildmarke (Pfadnummern in `SCHICHTEN`, Reihenfolge = Malreihenfolge in `gesamt-4c_web.svg`, hinten nach vorn) mit Höhen und Fasen, Shader mit Spiegelung, Glanz, Schattenkarte, weichem Schatten darunter. Intro (8 s): Schichten fliegen auseinander und setzen sich zusammen. Danach langsames Schwingen, Neigung nach Zeiger/Finger, Tippen = einmal langsam drehen. Bei `prefers-reduced-motion` nur ein ruhiges 3D-Standbild.
-  - `web_gesamt-schrift_tundra-beach.svg`: das Gesamtlogo ohne die Bildmarke (die Pfadelemente 26 bis 38 entfernt). Ändert sich das Gesamtlogo, beides neu erzeugen und die Nummern in `SCHICHTEN` prüfen (das Skript wirft einen Fehler, wenn die Maße der Marke nicht passen).
-  - Sicherheitsnetz: Klappt WebGL2, das Laden oder ein Shader nicht, bleibt das flache Gesamtlogo (`gesamt-4c_web.svg`) stehen. Das Canvas ist 2,2-mal so hoch wie die Marke, damit sie sich drehen kann.
-  - Früherer Versuch mit gestapelten CSS-Scheiben wurde verworfen (sah nie gut aus).
+  - `marke3d.js`: Schichten der Bildmarke aus `gesamt-4c_web.svg` (Pfadnummern in `SCHICHTEN`, Reihenfolge = Malreihenfolge, hinten nach vorn; das Skript wirft einen Fehler, wenn die Maße nicht passen) mit Höhen und Fasen. Shader mit Spiegelung, Glanz, Schattenkarte, Licht hängt an der Kamera, weicher Bodenschatten. Kamerabahn `BAHN` (Schlüsselbilder bei Scroll-Fortschritt p: Start, Drehung, Seite, oben, Auge, Nase, Schnorchel, hinten, Schichten auseinander) mit Catmull-Rom-Spline, also ohne Stopps an den Schlüsselbildern. Scrollen, Ziehen und Rückdrehen laufen über eine gedämpfte Feder (`glatt`, SmoothDamp): sanfter Start, sanftes Auslaufen, kein Überschwingen. Ziehen: Maus waagrecht und senkrecht, Touch nur waagrecht (senkrecht scrollt die Seite), Loslassen gleitet mit Schwung aus, nach 2,4 s Ruhe dreht die Marke sanft zurück in die Bahn, Antippen = einmal herum. Intro (7 s): Schichten fliegen auseinander und setzen sich zusammen. Bei `prefers-reduced-motion` ein ruhiges Standbild, Ziehen ohne Nachlauf.
+  - Vorschau einer Perspektive: `marke.html?p=0.52` (0 bis 1, ohne Intro und Scrollen). Die Seite ist 800 svh hoch, solange 3D läuft.
+  - `web_marke-gelb_tundra-beach.svg`: flache gelbe Bildmarke (Pfade 26 bis 38 des Gesamtlogos). Sicherheitsnetz: Klappt WebGL2, das Laden oder ein Shader nicht, bleibt sie stehen und die Seite hat nur eine Bildschirmhöhe. Ändert sich das Gesamtlogo, diese Datei neu erzeugen und `SCHICHTEN` prüfen.
+  - Verworfen: Plaketten aus gestapelten CSS-Scheiben (sahen nie gut aus) und die Schrift daneben.
 - `impressum.html`, `datenschutz.html`: Rechtsseiten im gleichen Stil. Der Datenschutztext ist noch nicht auf die Live-Daten abgestimmt (Besucher sprechen nur mit der eigenen Domain, siehe unten).
 
 ## Aufbau der Hütten-Szene (`seite.html`)
@@ -44,7 +44,8 @@ Webseite für www.tundra-beach.at – Spaßseite eines nicht eingetragenen Verei
 - `web_bildmarke_tundra-beach.svg` – Bildmarke, auch Favicon
 - `web_huette_tundra-beach.svg` – Hütten-Illustration, Fassade des 3D-Modells (Tür bei x 143,7 / y 46,9 / 43 × 99, Fensterglas bei x 107,5 / y 56,2 / 15,9 × 18,2, Wandkörper x 18,9 bis 199,6, von 221,97 × 157,3)
 - `web_welle_tundra-beach.svg` – Welle (zurzeit nicht eingebunden)
-- `gesamt-4c_web.svg` – Gesamtlogo
+- `gesamt-4c_web.svg` – Gesamtlogo (Quelle der 3D-Bildmarke)
+- `web_marke-gelb_tundra-beach.svg` – flache gelbe Bildmarke, Sicherheitsnetz der 3D-Seite
 
 ## Gestaltung
 - Hintergrund `#ffffff`, Text `#2c2c2b`; auch im Innenraum der Hütte alles weiß (Ziegel- und Dielenlinien in `#2c2c2b` mit geringer Deckkraft, weiche Schatten), einziger Akzent Wasserblau `#5b9bbd`
