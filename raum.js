@@ -105,6 +105,37 @@
     [[85, 86], 'schnee', 'Schneeschauer'],
     [[95, 96, 99], 'gewitter', 'Gewitter'],
   ];
+  // Ausblick aus dem Fenster: welche Ebenen zum Wettercode gehören
+  function aussichtArten(code) {
+    if (code <= 1) return ['sonne'];
+    if (code === 2) return ['sonne', 'wolken'];
+    if (code === 3) return ['wolken'];
+    if (code === 45 || code === 48) return ['nebel'];
+    if (code >= 95) return ['wolken', 'regen', 'blitz'];
+    if ((code >= 71 && code <= 77) || code === 85 || code === 86) return ['wolken', 'schnee'];
+    return ['wolken', 'regen'];
+  }
+
+  function teilchen(elId, klasse, anzahl, dauer) {
+    const ebene = $(elId);
+    if (!ebene) return;
+    for (let i = 0; i < anzahl; i += 1) {
+      const t = document.createElement('i');
+      t.className = klasse;
+      t.style.setProperty('--x', `${Math.round(Math.random() * 520)}px`);
+      t.style.setProperty('--d', `${(-Math.random() * dauer).toFixed(2)}s`);
+      t.style.setProperty('--t', `${(dauer * (0.8 + Math.random() * 0.5)).toFixed(2)}s`);
+      ebene.append(t);
+    }
+  }
+  teilchen('aussicht-regen', 'tropfen', 46, 0.9);
+  teilchen('aussicht-schnee', 'flocke', 40, 6);
+
+  function aussichtSetzen(code) {
+    const arten = aussichtArten(code);
+    document.querySelectorAll('.aussicht-ebene').forEach((e) => e.classList.toggle('aktiv', arten.includes(e.dataset.art)));
+  }
+
   const RICHTUNGEN = ['N', 'NO', 'O', 'SO', 'S', 'SW', 'W', 'NW'];
   const VERALTET_NACH_MS = 6 * 60 * 60 * 1000;
 
@@ -130,6 +161,7 @@
     }
     if (gueltig(w.feuchte)) text('wetter-feuchte', `${keine.format(w.feuchte)} %`);
     if (gueltig(w.niederschlag)) text('wetter-regen', `${eine.format(w.niederschlag)} mm`);
+    aussichtSetzen(w.code);
     document.querySelectorAll('#wetter-icon svg').forEach((s) => s.classList.toggle('aktiv', s.dataset.icon === eintrag[1]));
     const alt = markiereVeraltet('wetter', w.stand);
     text('wetter-stand', standText(w.stand, alt));

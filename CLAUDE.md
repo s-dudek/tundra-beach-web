@@ -8,14 +8,17 @@ Webseite für www.tundra-beach.at – Spaßseite eines nicht eingetragenen Verei
 - Kontakt-Mail: info@tundra-beach.at (Zoho Mail).
 
 ## Aktueller Stand
-- `index.html`: Scroll-Erlebnis (Branch `claude/gracious-ride-1gkoh8`, noch nicht auf `main`). Die Hütte steht da, beim Scrollen öffnet sich die Tür, man geht hinein und durch einen Gang mit vier Tafeln (Uhr, Kalender, Wetter Lienz, Pegel Isel Lienz), dreht sich um, geht hinaus und die Tür schließt sich. Davor das Intro (Wortmarke → Bildmarke, einmal pro Sitzung über sessionStorage).
+- `index.html`: Scroll-Rundgang durch die Hütte. Die Hütte steht als echter 3D-Körper in einer weißen Welt (Boden mit Raster, weicher Schatten, Nebel zum Rand). Beim Scrollen geht man zur Tür (rechts), sie öffnet sich nach außen, man geht hinein und schaut nach links. An der Rückwand hängen Uhr, Kalender und die Pegellatte. Dann zum Fenster in der Vorderwand (Blick nach draußen aufs Wetter), zur Tür hinaus, umdrehen, die Hütte wieder sehen, Tür schließt sich. Davor das Intro (Wortmarke → Bildmarke, einmal pro Sitzung über sessionStorage).
 - `impressum.html`, `datenschutz.html`: Rechtsseiten im gleichen Stil. Der Datenschutztext ist noch nicht auf die Live-Daten abgestimmt (Besucher sprechen nur mit der eigenen Domain, siehe unten).
 
 ## Aufbau der Szene
-- `vorab.js` (vor dem Rendern): setzt `skip-intro` und die Klasse `szene`. Bei `prefers-reduced-motion` fehlt `szene`, dann gibt es eine ruhige Seite untereinander (Hütte, Tafeln).
-- `tour.js`: Scroll-Fortschritt `p` (0 bis 1, geglättet) steuert alles. Zeitplan in `T`, Raum-Maße oben in der Datei. Tür und Wand der Hütte sind getrennte Ebenen (Türfläche in Zeichnungs-Koordinaten, `TUER`). Der Gang ist ein CSS-3D-Raum, die Kamera dreht um das Auge (`persp`), nicht um den Ursprung.
-- `raum.js`: Inhalt der Tafeln (Uhr in Lienzer Zeit, Kalender, Wetter, Pegel). Texte nur per `textContent`.
-- `site.css`: alles Layout. Gang-Maße (`--b`, `--l`, `--z0` …) müssen zu den Konstanten in `tour.js` passen. Ein- und Rückwand sind absichtlich 8 kleiner als der Gang, sonst fehlen im Browser Stücke davon.
+- Die Hütte ist die SVG `web_huette_tundra-beach.svg` als Fassade (Langseite) vorn, dazu Rück-, Seiten- und Innenwände, Boden, Decke. Maße (Weltpixel, 1 Zeichnungseinheit = 6,65 px): Körper 1200 breit, 600 tief (halb so tief wie breit), 805 hoch. Ursprung = Mitte des Hüttenbodens, y nach unten, z zum Betrachter. Tür und Fensterglas sind Ausschnitte (`clip-path: path()`) in der Fassade und in der Innen-Vorderwand; die Tür ist eine eigene Ebene mit Angel links und öffnet nach außen.
+- Scharf bleibt die Hütte nur, weil die Kamera sich bewegt und nichts per `scale` aufgezogen wird. Kein `will-change: transform` auf großen Flächen.
+- `vorab.js` (vor dem Rendern): setzt `skip-intro` und die Klasse `szene`. Bei `prefers-reduced-motion` fehlt `szene`, dann gibt es eine ruhige Seite untereinander (Hütte, Karten).
+- `tour.js`: Scroll-Fortschritt `p` (0 bis 1, geglättet) steuert Kamera (Pfad aus Schlüsselbildern `pfad`) und Tür. Die Kamera dreht um das Auge (`persp`), nicht um den Ursprung. Abstände richten sich nach der Bildschirmgröße.
+- `raum.js`: Inhalt der Wandobjekte (Uhr in Lienzer Zeit, Kalender, Wetter, Pegel) und die Ausblick-Animation (Sonne, Wolken, Regen, Schnee, Nebel, Blitz). Texte nur per `textContent`.
+- `site.css`: alle Maße der 3D-Welt stehen hier und müssen zu den Konstanten in `tour.js` passen.
+- Regeln fürs 3D: Flächen dürfen sich weder an der Kante berühren noch durchdringen (4 bis 6 px Abstand), sonst fehlen im Browser Stücke oder werden falsch überdeckt. Wenige große Flächen (der Boden draußen ist eine einzige, drinnen wird er ausgeblendet), sonst wird die Seite langsam.
 - Meta-CSP in `index.html`: nur eigene Dateien, keine Inline-Styles und keine Inline-Skripte im HTML (Styles setzt JS über CSSOM).
 
 ## Platzhalter ein- und ausschalten
@@ -31,14 +34,14 @@ Webseite für www.tundra-beach.at – Spaßseite eines nicht eingetragenen Verei
 - Lokal testen: `NODE_USE_ENV_PROXY=1 node scripts/live-daten.mjs` (nur nötig hinter einem Proxy).
 
 ## Dateien
-- `web_wortmarke_tundra-beach.svg` – Schriftzug (auch invertiert auf der Rückwand im Gang)
+- `web_wortmarke_tundra-beach.svg` – Schriftzug (auch als Logo an der linken Innenwand)
 - `web_bildmarke_tundra-beach.svg` – Bildmarke, auch Favicon
-- `web_huette_tundra-beach.svg` – Hütten-Illustration, ist die Hauptfigur der Startszene (Tür bei x 143,7 / y 46,9 / 43 × 99 von 221,97 × 157,3)
+- `web_huette_tundra-beach.svg` – Hütten-Illustration, Fassade des 3D-Modells (Tür bei x 143,7 / y 46,9 / 43 × 99, Fensterglas bei x 107,5 / y 56,2 / 15,9 × 18,2, Wandkörper x 18,9 bis 199,6, von 221,97 × 157,3)
 - `web_welle_tundra-beach.svg` – Welle (zurzeit nicht eingebunden)
 - `gesamt-4c_web.svg` – Gesamtlogo
 
 ## Gestaltung
-- Hintergrund `#ffffff`, Text `#2c2c2b`; im Innenraum der Hütte umgekehrt (Wand `#2c2c2b`, Tafeln weiß), einziger Akzent Wasserblau `#5b9bbd`
+- Hintergrund `#ffffff`, Text `#2c2c2b`; auch im Innenraum der Hütte alles weiß (Ziegel- und Dielenlinien in `#2c2c2b` mit geringer Deckkraft, weiche Schatten), einziger Akzent Wasserblau `#5b9bbd`
 - Systemschrift (-apple-system, Segoe UI, Roboto …), Monospace für Status-Texte
 - Ruhig, viel Weißraum; `prefers-reduced-motion` immer berücksichtigen
 

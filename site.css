@@ -3,7 +3,7 @@
   --ink: #2c2c2b;
   --wasser: #5b9bbd;
   --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-  --hut-b: min(90vw, 96svh);
+  --schatten: 0 18px 34px rgba(44,44,43,.16), 0 2px 6px rgba(44,44,43,.22);
 }
 *{ box-sizing: border-box; }
 html{ background: var(--bg); }
@@ -64,7 +64,7 @@ html.skip-intro #intro{ display: none; }
   top: clamp(14px, 3vh, 26px); left: clamp(14px, 3vw, 26px);
   width: clamp(38px, 5.6vw, 56px);
   opacity: .94;
-  transition: transform .2s ease, filter .4s ease;
+  transition: transform .2s ease;
 }
 .marke:hover, .marke:focus-visible{ transform: scale(1.06); }
 .marke img{ width: 100%; height: auto; }
@@ -76,7 +76,6 @@ html.skip-intro #intro{ display: none; }
   font-size: clamp(10px, 1.1vw, 12px);
   letter-spacing: .1em; text-transform: uppercase;
   color: var(--ink); opacity: .6;
-  transition: color .4s ease;
 }
 .legal-footer a{
   color: inherit; text-decoration: none;
@@ -85,11 +84,8 @@ html.skip-intro #intro{ display: none; }
 }
 .legal-footer a:hover, .legal-footer a:focus-visible{ border-color: currentColor; }
 .legal-footer span{ opacity: .6; }
-html.innen .legal-footer{ color: #fff; }
-html.innen .marke{ filter: invert(1); }
-html.innen .buehne{ background: var(--ink); }
 
-/* ---------- Tafeln (Grundlayout, auch ohne Szene lesbar) ---------- */
+/* ---------- Wandobjekte (Grundlayout, auch ohne Szene als Karten lesbar) ---------- */
 .tafel{
   background: #fff; color: var(--ink);
   border: 3px solid var(--ink); border-radius: 16px;
@@ -105,7 +101,7 @@ html.innen .buehne{ background: var(--ink); }
 
 /* Uhr */
 .uhr-svg{ display: block; width: min(250px, 70%); margin: 0 auto; fill: none; stroke: var(--ink); stroke-linecap: round; }
-.uhr-rand{ stroke-width: 5; }
+.uhr-rand{ fill: #fff; stroke-width: 6; }
 .uhr-teilung{ stroke-width: 5; }
 .uhr-strich{ stroke-width: 2.5; opacity: .6; }
 .zeiger-h{ stroke-width: 7; }
@@ -150,54 +146,194 @@ html.innen .buehne{ background: var(--ink); }
   border-top: 3px solid var(--ink);
   transition: height 1.2s ease;
 }
-.latte-skala{ position: absolute; inset: 0 4px 0 auto; display: flex; flex-direction: column; justify-content: space-between; padding: 2px 0; font-size: .6em; font-style: normal; text-align: right; }
+.latte-skala{ position: absolute; inset: 0 4px 0 auto; display: flex; flex-direction: column; justify-content: space-between; padding: 2px 0; font-size: .6em; text-align: right; }
 .latte-skala i{ font-style: normal; line-height: 1; }
 .pegel-wert{ margin: 0; font-size: 3em; font-weight: 700; line-height: 1; }
 .pegel-wert small{ font-size: .4em; font-weight: 600; opacity: .7; }
 .pegel-sub{ margin: 6px 0 0; opacity: .8; }
 
 /* Daten veraltet (letzter bekannter Stand) */
-.tafel.veraltet .tafel-fuss.stand{ opacity: 1; font-weight: 700; }
+.tafel.veraltet .tafel-fuss{ opacity: 1; }
 
 /* ---------- Ohne Szene: ruhige Seite untereinander ---------- */
-.buehne{ display: flex; flex-direction: column; padding: clamp(80px, 12vh, 120px) 16px clamp(80px, 12vh, 110px); }
-.huette{ order: -1; display: grid; place-items: center; margin-bottom: clamp(28px, 6vh, 56px); }
-.huette-rahmen{ position: relative; width: var(--hut-b); max-width: 900px; aspect-ratio: 221.97 / 157.3; }
-.welt{ display: grid; justify-items: center; gap: clamp(20px, 4vh, 36px); }
-.raum, .weiss, .hinweis, .loch, .portal{ display: none; }
+.buehne{ display: flex; flex-direction: column; align-items: center; gap: clamp(20px, 4vh, 36px); padding: clamp(80px, 12vh, 120px) 16px clamp(80px, 12vh, 110px); }
+.welt, .huette{ display: contents; }
+.fassade{ display: block; width: min(100%, 900px); height: auto; order: -1; margin-bottom: clamp(8px, 3vh, 28px); }
+.aussen, .raum, .tuer, .hinweis{ display: none; }
 
-/* Hütte: Wand und Tür sind getrennte Ebenen. Türfläche in Hütten-Koordinaten:
-   x 143,7 / y 46,9 / Breite 43 / Höhe 99 von 221,97 x 157,3. */
-.huette-bild{
-  display: block; width: 100%; height: auto;
-  clip-path: polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0,
-    64.738% 29.815%, 64.738% 92.753%, 84.111% 92.753%, 84.111% 29.815%, 64.738% 29.815%);
-}
-.tuer{
-  position: absolute; left: 64.738%; top: 29.815%; width: 19.372%; height: 62.937%;
-  transform-origin: 0 50%;
-  backface-visibility: hidden;
-}
-.tuer-flaeche{ position: relative; width: 100%; height: 100%; overflow: hidden; background: #fff; }
-.tuer-flaeche img{ position: absolute; width: 516.2%; max-width: none; left: -334.19%; top: -47.37%; }
-
-/* ---------- Mit Szene: Hütte betreten, Gang durchqueren, wieder hinausgehen ---------- */
-.szene .tour{ height: 900svh; }
+/* ---------- Mit Szene: Hütte als 3D-Körper, Rundgang beim Scrollen ----------
+   Alle Maße in Weltpixeln. 1 Einheit der Zeichnung = 6,65 px. Hüttenkörper 1200 breit (Langseite = Fassade),
+   600 tief (halb so tief), 805 hoch. Ursprung: Mitte des Hüttenbodens. x nach rechts, y nach unten, z zum Betrachter.
+   Flächen berühren sich nie an der Kante (4 bis 6 px Abstand), sonst fehlen im Browser Stücke davon. */
+.szene .tour{ height: 1150svh; }
 .szene .buehne{
-  position: sticky; top: 0; display: block; height: 100svh; padding: 0;
-  overflow: hidden; perspective: 900px;
-  /* Gang: Eingangswand bei z = 1110, Rückwand bei z = -4500 (siehe tour.js). Boden, Decke und Seitenwände
-     laufen 100 darüber hinaus, Ein- und Rückwand sind 8 kleiner. Berühren sich Flächen an der Kante,
-     verschwindet im Browser sonst ein Stück davon. */
-  --b: 1400px; --h: 900px; --l: 5810px; --z0: 1210px;
-  --b-wand: 1392px; --h-wand: 892px;
+  display: block; position: sticky; top: 0; height: 100svh; padding: 0;
+  overflow: hidden; perspective: 800px;
 }
-.szene .huette{ position: absolute; inset: 0; margin: 0; pointer-events: none; }
-.szene .huette-rahmen{ will-change: transform; }
-.szene .loch{ display: block; position: absolute; left: 64.738%; top: 29.815%; width: 19.372%; height: 62.937%; box-shadow: 0 0 0 250vmax #fff; }
-.szene .weiss{ display: block; position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+.szene .welt{ display: block; position: absolute; inset: 0; transform-style: preserve-3d; }
+.szene .huette, .szene .aussen{
+  display: block; position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform-style: preserve-3d;
+}
+.szene .raum{ display: block; position: absolute; left: 0; top: 0; width: 0; height: 0; transform-style: preserve-3d; }
+.szene .tuer{ display: block; }
+
+.szene .f{ position: absolute; left: 0; top: 0; transform-origin: 0 0; margin: 0; }
+
+/* Außenwelt: eine einzige Bodenfläche (Raster, Schatten unter der Hütte, Nebel zum Rand hin).
+   Bewusst nur eine Ebene, viele große 3D-Flächen machen die Seite langsam. */
+.szene .boden-aussen{
+  width: 7000px; height: 7000px; transform: translate3d(-3500px, 38px, -3500px) rotateX(90deg);
+  background-image:
+    radial-gradient(closest-side, rgba(255,255,255,0) 22%, #fff 100%),
+    radial-gradient(ellipse 950px 600px at 50% 50%, rgba(44,44,43,.28), rgba(44,44,43,.10) 62%, rgba(44,44,43,0)),
+    linear-gradient(90deg, rgba(44,44,43,.11) 0 2px, transparent 2px),
+    linear-gradient(0deg, rgba(44,44,43,.11) 0 2px, transparent 2px);
+  background-size: 100% 100%, 100% 100%, 300px 300px, 300px 300px;
+}
+
+/* Hütte: Fassade mit Ausschnitten für Tür und Fensterglas, weißer Untergrund damit nichts durchscheint */
+.szene .fassade{
+  width: 1476.1px; height: 1046px; margin: 0; order: 0;
+  transform: translate3d(-727.2px, -970.9px, 300px);
+  background: #fff;
+  clip-path: path(evenodd, "M0 0H1476.1V1008H0Z M955.6 311.9H1241.6V970.2H955.6Z M714.9 373.7H820.6V494.8H714.9Z");
+}
+.szene .tuer{
+  width: 286px; height: 658.3px; transform: translate3d(228.4px, -659px, 300px);
+  transform-style: preserve-3d;
+}
+.tuer-vorn, .tuer-hinten{ position: absolute; inset: 0; overflow: hidden; background: #fff; }
+.tuer-vorn{ backface-visibility: hidden; }
+.tuer-vorn img{ position: absolute; width: 1476.1px; max-width: none; left: -955.6px; top: -311.9px; }
+.tuer-hinten{
+  transform: translateZ(-6px);
+  background-image: repeating-linear-gradient(90deg, rgba(44,44,43,.28) 0 2px, transparent 2px 71.5px);
+  box-shadow: inset 0 0 0 3px rgba(44,44,43,.45);
+}
+
+/* Innenraum: weiß wie außen, Ziegel- und Dielenlinien, weiche Eckschatten */
+.szene .wand, .szene .boden-innen, .szene .decke-innen{ background-color: #fff; }
+.szene .wand{
+  background-image:
+    linear-gradient(90deg, rgba(44,44,43,.09), transparent 9%, transparent 91%, rgba(44,44,43,.09)),
+    linear-gradient(180deg, rgba(44,44,43,.10), transparent 16%, transparent 84%, rgba(44,44,43,.06)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='50'%3E%3Cpath d='M0 0H100M0 25H100M0 50H100M50 0V25M0 25V50M100 25V50' fill='none' stroke='%232c2c2b' stroke-opacity='.22' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-size: auto, auto, 100px 50px;
+}
+.szene .wand-hinten{ width: 1192px; height: 843px; transform: translate3d(-596px, -805px, -300px); }
+.szene .wand-vorn{
+  width: 1192px; height: 803px; transform: translate3d(-596px, -805px, 285px);
+  clip-path: path(evenodd, "M0 0H1192V803H0Z M824.4 146H1110.4V803H824.4Z M583.7 208H689.5V329H583.7Z");
+}
+.szene .wand-links, .szene .wand-rechts{ width: 600px; height: 843px; }
+.szene .wand-links{ transform: translate3d(-600px, -805px, 296px) rotateY(90deg); }
+.szene .wand-rechts{ transform: translate3d(600px, -805px, 296px) rotateY(90deg); }
+.szene .wand-links img{ position: absolute; left: 40px; top: 230px; width: 230px; height: auto; opacity: .92; }
+.szene .boden-innen{
+  width: 1188px; height: 575px; transform: translate3d(-594px, 0, -294px) rotateX(90deg);
+  background-image:
+    radial-gradient(ellipse at 50% 55%, transparent 40%, rgba(44,44,43,.10)),
+    repeating-linear-gradient(0deg, rgba(44,44,43,.14) 0 1.5px, transparent 1.5px 295px),
+    repeating-linear-gradient(90deg, rgba(44,44,43,.22) 0 1.5px, transparent 1.5px 84px);
+}
+.szene .decke-innen{
+  width: 1188px; height: 575px; transform: translate3d(-594px, -801px, -294px) rotateX(90deg);
+  background-image:
+    radial-gradient(ellipse at 50% 55%, transparent 35%, rgba(44,44,43,.10)),
+    repeating-linear-gradient(90deg, rgba(44,44,43,.18) 0 14px, transparent 14px 200px);
+}
+.szene .fenster-rahmen{
+  width: 133.8px; height: 149px; transform: translate3d(-26.3px, -611px, 282px);
+  border: 14px solid #fff;
+  box-shadow: 0 0 0 2px var(--ink), inset 0 0 0 2px var(--ink), 0 10px 18px rgba(44,44,43,.22);
+}
+.szene .aussicht{ width: 520px; height: 520px; transform: translate3d(300.6px, -796px, 440px) rotateY(180deg); backface-visibility: hidden; }
+
+/* Wandobjekte im Raum */
+.szene .tafel{
+  border: 0; border-radius: 0; padding: 0; background: transparent;
+  backface-visibility: hidden; font-size: 14px;
+}
+.szene .tafel-kopf{ position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); margin: 0; }
+.szene #uhr{ width: 280px; transform: translate3d(50px, -650px, -290px); }
+.szene #kalender{ width: 260px; transform: translate3d(-250px, -640px, -290px); }
+.szene #pegel{ width: 300px; transform: translate3d(-590px, -700px, -290px); }
+
+.szene #uhr .uhr-svg{ width: 280px; filter: drop-shadow(0 14px 18px rgba(44,44,43,.2)); }
+.szene #uhr .uhr-digital{ margin: 14px 0 0; font-size: 22px; background: #fff; padding: 6px 0 4px; box-shadow: var(--schatten); }
+.szene #uhr .tafel-fuss{ margin: 0; padding: 0 6px 6px; background: #fff; font-size: 10.5px; box-shadow: var(--schatten); clip-path: inset(0 -40px -40px -40px); }
+.szene #uhr .tafel-fuss.klein{ display: none; }
+
+.szene #kalender{ background: #fff; box-shadow: var(--schatten); border-radius: 3px; overflow: hidden; padding: 0 14px 14px; }
+.szene #kalender::before{ content: ""; display: block; margin: 0 -14px 10px; height: 18px; background: radial-gradient(circle at 14px 9px, #fff 0 4px, transparent 4.5px) 0 0 / 26px 18px, var(--ink); }
+.szene #kalender .kal-monat{ margin: 0 0 8px; font-size: 21px; }
+.szene #kalender .kal-raster span{ font-size: 13.5px; }
+.szene #kalender .kal-raster .kal-kopf{ font-size: 9px; }
+
+.szene #pegel{ background: #fff; box-shadow: var(--schatten); border-radius: 3px; padding: 14px; }
+.szene #pegel .latte{ width: 84px; height: 380px; }
+.szene #pegel .latte-skala{ font-size: 9px; }
+.szene #pegel .pegel-zeile{ gap: 14px; }
+.szene #pegel .pegel-wert{ font-size: 34px; }
+.szene #pegel .pegel-sub{ font-size: 12px; margin-top: 4px; }
+.szene #pegel .werte dt{ font-size: 7.5px; }
+.szene #pegel .werte dd{ font-size: 13px; }
+.szene #pegel .tafel-fuss{ font-size: 8.5px; }
+.szene #pegel .tafel-fuss.klein{ font-size: 7.5px; }
+
+/* Wetter: auf der Fensterscheibe, davor das Wetter draußen */
+.szene #wetter{
+  width: 105.8px; height: 121px; transform: translate3d(93.5px, -597px, 291px) rotateY(180deg);
+  display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden;
+  padding: 0 5px 4px;
+  background: linear-gradient(to top, rgba(255,255,255,.82) 0, rgba(255,255,255,.62) 55%, rgba(255,255,255,0) 100%);
+}
+.szene #wetter .wetter-kopf{ margin: 0 0 2px; gap: 0; }
+.szene #wetter .wetter-icon{ display: none; }
+.szene #wetter .wetter-temp{ font-size: 21px; }
+.szene #wetter .wetter-text{ margin: 1px 0 3px; font-size: 8px; }
+.szene #wetter .werte{ gap: 2px 6px; }
+.szene #wetter .werte dt{ font-size: 4.6px; }
+.szene #wetter .werte dd{ margin: 0; font-size: 7px; }
+.szene #wetter .tafel-fuss{ margin: 2px 0 0; font-size: 4.4px; line-height: 1.2; }
+.szene #wetter .tafel-fuss.klein{ margin-top: 0; }
+
+/* Ausblick: Wetter draußen, nur Linien auf Weiß, mit Horizont */
+.aussicht-boden{
+  position: absolute; left: 0; right: 0; top: 262px; bottom: 0;
+  border-top: 2px solid rgba(44,44,43,.35);
+  background:
+    repeating-linear-gradient(90deg, rgba(44,44,43,.08) 0 2px, transparent 2px 56px),
+    linear-gradient(to bottom, rgba(44,44,43,.12), rgba(44,44,43,0) 70%);
+}
+.aussicht-ebene{ position: absolute; inset: 0; display: none; }
+.aussicht-ebene.aktiv{ display: block; }
+.aussicht i{ position: absolute; display: block; font-style: normal; }
+.sonne{
+  left: 226px; top: 172px; width: 64px; height: 64px; border: 4px solid var(--ink); border-radius: 50%;
+  box-shadow: 0 0 0 10px rgba(44,44,43,.07), 0 0 0 20px rgba(44,44,43,.04);
+  animation: pulsieren 6s ease-in-out infinite;
+}
+@keyframes pulsieren{ 50%{ transform: scale(1.06); } }
+.wolke{ height: 36px; border: 4px solid var(--ink); border-radius: 40px; background: #fff; opacity: .85; }
+.wo1{ left: 190px; top: 176px; width: 110px; animation: treiben 26s linear infinite alternate; }
+.wo2{ left: 250px; top: 214px; width: 90px; animation: treiben 32s linear infinite alternate-reverse; }
+.wo3{ left: 170px; top: 246px; width: 100px; animation: treiben 22s linear infinite alternate; }
+@keyframes treiben{ from{ transform: translateX(-40px); } to{ transform: translateX(40px); } }
+.nebel{ left: 120px; width: 280px; height: 0; border-top: 4px solid rgba(44,44,43,.35); }
+.nb1{ top: 176px; animation: treiben 12s ease-in-out infinite alternate; }
+.nb2{ top: 214px; animation: treiben 16s ease-in-out infinite alternate-reverse; }
+.nb3{ top: 250px; animation: treiben 14s ease-in-out infinite alternate; }
+.blitz{ left: 244px; top: 170px; width: 18px; height: 80px; background: var(--ink); clip-path: polygon(60% 0, 0 55%, 45% 55%, 25% 100%, 100% 38%, 55% 38%); animation: blitzen 5s steps(1) infinite; }
+@keyframes blitzen{ 0%,92%{ opacity: 0; } 94%,96%{ opacity: 1; } 98%{ opacity: 0; } 99%{ opacity: .8; } 100%{ opacity: 0; } }
+.tropfen{ left: var(--x, 50%); top: -30px; width: 2px; height: 26px; background: var(--ink); opacity: .75; animation: fallen var(--t, .9s) linear var(--d, 0s) infinite; }
+.flocke{ left: var(--x, 50%); top: -20px; width: 7px; height: 7px; border: 2px solid var(--ink); border-radius: 50%; animation: schweben var(--t, 6s) linear var(--d, 0s) infinite; }
+@keyframes fallen{ to{ transform: translateY(560px); } }
+@keyframes schweben{ to{ transform: translate3d(30px, 560px, 0); } }
+
+/* Scroll-Hinweis */
 .szene .hinweis{
-  display: block; position: absolute; left: 0; right: 0; bottom: clamp(48px, 9svh, 90px);
+  display: block; position: absolute; left: 0; right: 0; bottom: clamp(44px, 7svh, 72px);
   margin: 0; text-align: center; font-size: clamp(10px, 1.2vw, 12px); letter-spacing: .22em; text-transform: uppercase;
   opacity: .7;
 }
@@ -206,53 +342,6 @@ html.innen .buehne{ background: var(--ink); }
   transform-origin: top; animation: strich 1.8s ease-in-out infinite;
 }
 @keyframes strich{ 0%{ transform: scaleY(0); } 60%{ transform: scaleY(1); } 100%{ transform: scaleY(1); opacity: 0; } }
-
-.szene .welt{ display: block; position: absolute; inset: 0; transform-style: preserve-3d; will-change: transform; }
-.szene .raum{ display: block; position: absolute; inset: 0; transform-style: preserve-3d; }
-
-.flaeche{ position: absolute; left: 50%; top: 50%; background-color: var(--ink); }
-.szene .portal{ display: grid; }
-.decke, .boden{ width: var(--b); height: var(--l); margin: calc(var(--l) / -2) 0 0 calc(var(--b) / -2); }
-.boden{
-  transform: translate3d(0, calc(var(--h) / 2), calc(var(--z0) - var(--l) / 2)) rotateX(90deg);
-  background-image:
-    repeating-linear-gradient(90deg, rgba(255,255,255,.12) 0 3px, transparent 3px 140px),
-    repeating-linear-gradient(0deg, rgba(0,0,0,.35) 0 8px, transparent 8px 500px);
-}
-.decke{
-  transform: translate3d(0, calc(var(--h) / -2), calc(var(--z0) - var(--l) / 2)) rotateX(90deg);
-  background-image:
-    repeating-linear-gradient(0deg, rgba(0,0,0,.55) 0 22px, transparent 22px 500px),
-    repeating-linear-gradient(90deg, rgba(255,255,255,.07) 0 3px, transparent 3px 140px);
-}
-.wand{
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='120'%3E%3Cpath d='M0 0H240M0 60H240M0 120H240M120 0V60M0 60V120M240 60V120' fill='none' stroke='%23fff' stroke-opacity='.14' stroke-width='3'/%3E%3C/svg%3E");
-  background-size: 240px 120px;
-}
-.wand-l, .wand-r{ width: var(--l); height: var(--h); margin: calc(var(--h) / -2) 0 0 calc(var(--l) / -2); }
-.wand-l{ transform: translate3d(calc(var(--b) / -2), 0, calc(var(--z0) - var(--l) / 2)) rotateY(90deg); }
-.wand-r{ transform: translate3d(calc(var(--b) / 2), 0, calc(var(--z0) - var(--l) / 2)) rotateY(90deg); }
-.endwand{
-  width: var(--b-wand); height: var(--h-wand); margin: calc(var(--h-wand) / -2) 0 0 calc(var(--b-wand) / -2);
-  transform: translate3d(0, 0, -4500px);
-  display: grid; place-items: center;
-}
-.endwand img{ width: 560px; filter: invert(1); opacity: .92; }
-.portal{
-  width: var(--b-wand); height: var(--h-wand); margin: calc(var(--h-wand) / -2) 0 0 calc(var(--b-wand) / -2);
-  background: #fff; display: grid; place-items: center; opacity: 0; visibility: hidden;
-  transform: translate3d(0, 0, 1110px);
-}
-.portal-rahmen{ width: 460px; height: 780px; border: 10px solid var(--ink); border-radius: 4px; box-shadow: inset 0 0 0 10px #fff, inset 0 0 0 13px rgba(44,44,43,.35); }
-
-.szene .tafel{
-  position: absolute; left: 50%; top: 50%;
-  width: min(560px, 104vw); font-size: 20px;
-  backface-visibility: hidden;
-  box-shadow: 0 0 0 4px #fff;
-  transform: translate3d(calc(-50% + var(--x, 0px)), -50%, var(--z, 0px));
-  will-change: opacity;
-}
 
 @media (prefers-reduced-motion: reduce){
   .latte-wasser{ transition: none; }
