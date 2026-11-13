@@ -632,7 +632,7 @@
     }
     vec4 b = blase(pc, d, v_unsch);
     vec3 rgb = mix(b.rgb, vec3(1.0, 0.82, 0.32), v_gold * 0.6);
-    float a = clamp(b.a * (1.3 + v_gold * 0.5), 0.0, 1.0) * v_alpha;
+    float a = clamp(b.a * (1.7 + v_gold * 0.5), 0.0, 1.0) * v_alpha;
     o = vec4(rgb * a, a);
   }`;
 
@@ -986,7 +986,7 @@
       const ndx = (Math.random() * 1.9 - 0.95); const ndy = imBild ? Math.random() * 1.5 - 0.75 : -1.15 - Math.random() * 0.2;
       const d = kam.abst * (0.7 + 0.5 * Math.random());
       const proPx = (2 * d * kam.tan) / letzteHoehe; const gold = Math.random() < 0.09;
-      const px = gold ? 26 + 10 * Math.random() : 20 + 34 * Math.random() ** 1.4;
+      const px = gold ? 28 + 10 * Math.random() : 24 + 36 * Math.random() ** 1.4;
       const ort = [0, 1, 2].map((j) => kam.pos[j] + (kam.vor[j] + kam.rechts[j] * ndx * kam.tan * kam.asp + kam.hoch[j] * ndy * kam.tan) * d);
       spiel.push({ p: ort, r: px * proPx, steig: (34 + 56 * Math.random()) * (gold ? 1.5 : 1) * proPx, ph: Math.random() * 6.283, t: 0, popT: -1, weg: 0, gold, rechts: kam.rechts, sx: -999, sy: -999, sr: 0, w: 1 });
     }
