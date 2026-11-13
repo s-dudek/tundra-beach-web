@@ -44,13 +44,13 @@
   // Lage in der Startansicht: [rechts, hoch, Tiefe] im Blickfeld, für Querformat (quer) und Hochformat (hoch);
   // unten = der Name steht oberhalb der Blase (zur Marke hin), damit er nicht am Bildrand klebt.
   // Die Kamera behält beim Besuch ihre Blickrichtung: Scrollen und Klicken zoomen nur hinein und wieder hinaus.
-  const S_GIER = -18; const S_NICK = 6; const S_ZOOM = 1.28;       // Anfangsperspektive: ganze Marke im Bild
+  const S_GIER = -18; const S_NICK = 6; const S_ZOOM = 1.05;       // Anfangsperspektive: ganze Marke im Bild
   const BLASE_R = 0.42;                                             // Radius einer Blase (die Marke ist 2 hoch)
   const BLASEN = {
-    wasserstand: { titel: 'Wasserstand', unter: 'Isel · Lienz', quer: [-2.15, 0.9, 0.5], hoch: [-0.75, 1.95, 0.3] },
-    wetter: { titel: 'Wetter', unter: 'Lienz', quer: [2.05, 1.1, -0.7], hoch: [0.75, 2.1, -0.4] },
-    kalender: { titel: 'Kalender', unter: 'Der Zahn der Zeit', quer: [-1.9, -0.95, -0.6], hoch: [-0.75, -1.75, -0.4], unten: true },
-    kontakt: { titel: 'Kontakt', unter: 'Die Nase vorn', quer: [2.2, -0.8, 0.5], hoch: [0.75, -1.8, 0.2], unten: true },
+    wasserstand: { titel: 'Wasserstand', quer: [-2.15, 0.9, 0.5], hoch: [-0.75, 1.95, 0.3] },
+    wetter: { titel: 'Wetter', quer: [2.05, 1.1, -0.7], hoch: [0.75, 2.1, -0.4] },
+    kalender: { titel: 'Kalender', quer: [-1.9, -0.95, -0.6], hoch: [-0.75, -1.75, -0.4], unten: true },
+    kontakt: { titel: 'Kontakt', quer: [2.2, -0.8, 0.5], hoch: [0.75, -1.8, 0.2], unten: true },
   };
   const SCHLUESSEL = Object.keys(BLASEN);
   const ALIAS = { uhr: 'kalender' };                                // alte Adresse #uhr führt zum Kalender (dort steht auch die Uhr)
@@ -138,10 +138,11 @@
   };
 
   // Lage der Blasen: in Koordinaten der Anfangsansicht festgelegt, hier in Weltkoordinaten umgerechnet (leichtes Schweben)
+  const LAGE = 1.28 / S_ZOOM;                                       // Lage wurde für Zoom 1,28 entworfen: bei weiterer Ansicht entsprechend nach außen
   const R0 = mat.mul(mat.dreheX(rad(S_NICK)), mat.dreheY(rad(S_GIER)));
   function blasenPos(key, zeit, asp) {
     const b = BLASEN[key]; const q = smooth(0.6, 1.2, asp);
-    const l = [0, 1, 2].map((i) => lerp(b.hoch[i], b.quer[i], q));
+    const l = [0, 1, 2].map((i) => lerp(b.hoch[i], b.quer[i], q) * LAGE);
     l[0] += Math.sin(zeit * 0.5 + b.quer[0] * 3) * 0.05; l[1] += Math.sin(zeit * 0.43 + b.quer[1] * 5) * 0.09; l[2] += Math.sin(zeit * 0.37 + b.quer[2] * 4) * 0.05;
     return [0, 1, 2].map((r) => R0[r * 4] * l[0] + R0[r * 4 + 1] * l[1] + R0[r * 4 + 2] * l[2]);
   }
@@ -401,9 +402,9 @@
     vec2 uv = gl_FragCoord.xy / u_res; float asp = u_res.x / u_res.y;
     float y = uv.y + u_blick.y * 0.12;
     // Wasser schluckt erst Rot, dann Grün: oben helles Türkis, in der Mitte Blau, unten fast Schwarzblau
-    vec3 oben = mix(vec3(0.26, 0.76, 0.78), vec3(0.06, 0.33, 0.44), u_tiefe);
-    vec3 mitte = mix(vec3(0.08, 0.44, 0.60), vec3(0.02, 0.17, 0.30), u_tiefe);
-    vec3 unten = mix(vec3(0.02, 0.18, 0.33), vec3(0.005, 0.06, 0.14), u_tiefe);
+    vec3 oben = mix(vec3(0.31, 0.62, 0.66), vec3(0.07, 0.28, 0.37), u_tiefe);
+    vec3 mitte = mix(vec3(0.11, 0.36, 0.49), vec3(0.03, 0.15, 0.25), u_tiefe);
+    vec3 unten = mix(vec3(0.04, 0.15, 0.26), vec3(0.01, 0.055, 0.12), u_tiefe);
     vec3 c = mix(unten, mitte, smoothstep(0.0, 0.5, y));
     c = mix(c, oben, smoothstep(0.42, 1.05, y));
 
@@ -422,8 +423,8 @@
     float r3 = fbm(vec2(ang * 40.0 + u_zeit * 0.02, 8.0 - u_zeit * 0.09));
     float strahl = pow(smoothstep(0.36, 0.86, r1), 2.0) * 0.8 + pow(smoothstep(0.42, 0.92, r2), 2.4) * 0.5 + pow(smoothstep(0.5, 0.95, r3), 3.0) * 0.28;
     strahl *= exp(-dist * 0.8) * (0.55 + 0.45 * dunst) * (1.0 - u_tiefe * 0.7);
-    c += vec3(0.55, 0.95, 0.98) * strahl * 0.42;
-    c += vec3(0.4, 0.85, 0.9) * exp(-dist * 1.7) * 0.2 * (1.0 - u_tiefe * 0.8);       // Glanz der Oberfläche oben
+    c += vec3(0.62, 0.9, 0.9) * strahl * 0.33;
+    c += vec3(0.5, 0.8, 0.82) * exp(-dist * 1.7) * 0.16 * (1.0 - u_tiefe * 0.8);       // Glanz der Oberfläche oben
 
     vec2 q = uv - 0.5; c *= 1.0 - dot(q, q) * 0.9;
     c += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 200.0;   // gegen Streifen im Verlauf
@@ -434,7 +435,7 @@
   // um die Kamera herum gekachelt, Tiefenunschärfe nach Abstand zum Blickpunkt.
   const VS_TEILCHEN = `#version 300 es
   layout(location=0) in vec4 a_seed;
-  uniform mat4 u_vp; uniform vec3 u_cam; uniform float u_drift; uniform float u_zeit; uniform float u_focal; uniform float u_fokus; uniform float u_maxPt; uniform float u_tiefe;
+  uniform mat4 u_vp; uniform vec3 u_cam; uniform float u_drift; uniform float u_zeit; uniform float u_focal; uniform float u_fokus; uniform float u_maxPt; uniform float u_tiefe; uniform vec3 u_pose;
   out float v_typ; out float v_alpha; out float v_unsch; out float v_s;
   void main(){
     float s = a_seed.w; float tv = fract(s * 13.7);
@@ -459,10 +460,14 @@
     a *= clamp(px / 2.2, 0.0, 1.0) * (1.0 - 0.4 * u_tiefe);
     v_typ = typ; v_alpha = a; v_unsch = unsch; v_s = s;
     if (typ > 2.5) {                                                // unscharfe Lichtflecken: fest vor der Linse, ziehen langsam durchs Bild
+      float tf = 0.5 + fract(s * 17.3);                             // nah (groß) bewegt sich stärker als fern
       vec2 n = a_seed.xy * 2.2 - 1.1;
-      n += vec2(sin(u_zeit * 0.05 + s * 20.0) * 0.05, cos(u_zeit * 0.04 + s * 14.0) * 0.04 + u_drift * 0.002);
+      n += vec2(sin(u_zeit * 0.05 + s * 20.0) * 0.05, cos(u_zeit * 0.04 + s * 14.0) * 0.04 + u_drift * 0.004);
+      n *= max(0.2, 1.0 + 0.4 * u_pose.z * tf);                      // beim Hineinzoomen strömen sie nach außen, beim Hinauszoomen zurück
+      n += vec2(-u_pose.x * 0.35, u_pose.y * 0.35) * tf;             // Blickrichtung verschiebt sie mit
+      n = mod(n + 1.1, 2.2) - 1.1;
       gl_Position = vec4(n, fract(s * 53.1) < 0.4 ? -0.9 : 0.995, 1.0);   // ein Teil vor, ein Teil hinter den Körpern
-      gl_PointSize = clamp(mix(0.04, 0.17, pow(fract(s * 5.3), 1.5)) * u_focal / 2.835, 10.0, u_maxPt);
+      gl_PointSize = clamp(mix(0.04, 0.17, pow(fract(s * 5.3), 1.5)) * max(0.5, 1.0 + 0.2 * u_pose.z * tf) * u_focal / 2.835, 10.0, u_maxPt);
       v_alpha = 0.2 * (0.65 + 0.35 * sin(u_zeit * 0.3 + s * 40.0)) * (1.0 - 0.4 * u_tiefe);
       if (fract(s * 31.7) > 0.3) gl_Position = vec4(3.0, 3.0, 3.0, 1.0);   // nur wenige zugleich im Bild
     }
@@ -673,7 +678,7 @@
       const kLicht = [KEY[0] * Math.cos(lw) + KEY[2] * Math.sin(lw), KEY[1], -KEY[0] * Math.sin(lw) + KEY[2] * Math.cos(lw)];
       const kn = Math.hypot(kLicht[0], kLicht[1], kLicht[2]);
       const licht = [0, 1, 2].map((i) => (R[i * 4] * kLicht[0] + R[i * 4 + 1] * kLicht[1] + R[i * 4 + 2] * kLicht[2]) / kn);
-      const wasser = [0.0035, 0.115, 0.215].map((v, i) => lerp(v, [0.0004, 0.025, 0.07][i], z.tiefe));
+      const wasser = [0.025, 0.14, 0.215].map((v, i) => lerp(v, [0.004, 0.03, 0.065][i], z.tiefe));
       const dichte = 0.024;
       const ident = mat.ident();
 
@@ -781,6 +786,7 @@
         gl.uniform1f(u(pTeil, 'u_fokus'), abst);
         gl.uniform1f(u(pTeil, 'u_maxPt'), maxPunkt);
         gl.uniform1f(u(pTeil, 'u_tiefe'), z.tiefe);
+        gl.uniform3f(u(pTeil, 'u_pose'), rad(z.gier), rad(z.nick), Math.log(z.zoom / S_ZOOM));
         gl.bindVertexArray(vaoT);
         gl.drawArrays(gl.POINTS, 0, teilAnzahl);
 
@@ -870,8 +876,7 @@
       const el = document.createElement('div'); el.className = b.unten ? 'blase unten' : 'blase';   // untere Blasen tragen den Namen oben, zur Marke hin
       const knopf = document.createElement('button'); knopf.type = 'button'; knopf.className = 'blase-name';
       const t1 = document.createElement('span'); t1.textContent = b.titel;
-      const t2 = document.createElement('small'); t2.textContent = b.unter;
-      knopf.append(t1, t2);
+      knopf.append(t1);
       const info = document.createElement('div'); info.className = 'blase-info';
       el.append(knopf, info); blasenHalter.append(el);
       knopf.addEventListener('click', () => oeffnen(key, true));
@@ -1088,7 +1093,7 @@
       const zoomEff = Math.exp(P.lz) * lerp(0.42, 1, e);
       const sanft = 1 / Math.sqrt(Math.exp(P.lz));
       const hub = (modus === 'start' ? Math.sin(t * 0.85) * 0.035 * sanft : 0) + 0.95 * rest * rest;
-      drift += dt * (0.14 + 6.5 * rest * rest * rest);
+      drift += dt * (0.3 + 6.5 * rest * rest * rest + Math.abs(velP.v) * 10);   // beim Scrollen ziehen die Teilchen mit
       const tiefe = clamp(0.1 + 0.9 * rest * rest, 0, 1) * (modus === 'tafel' ? 0.5 : 1);
       motor.schritt(dt);
       motor.zeichnen({
