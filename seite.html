@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="description" content="Tundra Beach – die Hütte in Lienz mit Uhr, Kalender, Wetter und Pegel.">
+<link rel="icon" type="image/svg+xml" href="web_bildmarke_tundra-beach.svg">
+<title>Tundra Beach</title>
+<script src="vorab.js"></script>
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+
+  <div id="intro" aria-hidden="true">
+    <div class="flash flash-1"></div>
+    <div class="flash flash-2"></div>
+    <div class="flash flash-3"></div>
+    <img class="intro-mark intro-wort" src="web_wortmarke_tundra-beach.svg" alt="">
+    <img class="intro-mark intro-bild" src="web_bildmarke_tundra-beach.svg" alt="">
+  </div>
+
+  <a class="marke" href="#" aria-label="Zurück zum Anfang">
+    <img src="web_bildmarke_tundra-beach.svg" alt="Tundra Beach">
+  </a>
+
+  <main class="tour" id="tour">
+    <div class="buehne" id="buehne">
+      <h1 class="nur-leser">Tundra Beach</h1>
+
+      <div class="welt" id="welt">
+
+        <!-- Weiße Welt: ein Boden mit Raster, weichem Hüttenschatten und Nebel am Rand (Tiefe) -->
+        <div class="aussen" id="aussen" aria-hidden="true">
+          <div class="f boden-aussen"></div>
+        </div>
+
+        <!-- Hütte als 3D-Körper: Langseite (Fassade) vorn, halb so tief wie breit -->
+        <div class="huette" id="huette">
+          <img class="f fassade" src="web_huette_tundra-beach.svg" alt="Die Tundra-Beach-Hütte mit Schild über der Tür">
+          <div class="f tuer" id="tuer">
+            <div class="tuer-vorn"><img src="web_huette_tundra-beach.svg" alt=""></div>
+            <div class="tuer-hinten"></div>
+          </div>
+
+          <div class="raum" aria-hidden="true">
+            <div class="f wand wand-hinten"></div>
+            <div class="f wand wand-links"><img src="web_wortmarke_tundra-beach.svg" alt=""></div>
+            <div class="f wand wand-rechts"></div>
+            <div class="f wand wand-vorn"></div>
+            <div class="f boden-innen"></div>
+            <div class="f decke-innen"></div>
+            <div class="f dach"></div>
+            <div class="f fenster-rahmen"></div>
+            <div class="f aussicht" id="aussicht">
+              <div class="aussicht-boden"></div>
+              <div class="aussicht-ebene" data-art="sonne"><i class="sonne"></i></div>
+              <div class="aussicht-ebene" data-art="wolken"><i class="wolke wo1"></i><i class="wolke wo2"></i><i class="wolke wo3"></i></div>
+              <div class="aussicht-ebene" data-art="regen" id="aussicht-regen"></div>
+              <div class="aussicht-ebene" data-art="schnee" id="aussicht-schnee"></div>
+              <div class="aussicht-ebene" data-art="nebel"><i class="nebel nb1"></i><i class="nebel nb2"></i><i class="nebel nb3"></i></div>
+              <div class="aussicht-ebene" data-art="blitz"><i class="blitz"></i></div>
+            </div>
+          </div>
+
+          <!-- Wandobjekte (an der Rückwand bzw. in der Fensterscheibe) -->
+          <section class="f tafel" id="uhr" aria-labelledby="uhr-titel">
+            <header class="tafel-kopf"><span class="tafel-nr">01</span><h2 id="uhr-titel">Uhr</h2></header>
+            <svg class="uhr-svg" viewBox="-100 -100 200 200" role="img" aria-label="Analoguhr">
+              <circle class="uhr-rand" r="94"/>
+              <path class="uhr-teilung" d="M0-86V-74M0 86V74M-86 0H-74M86 0H74"/>
+              <path class="uhr-strich" d="M43-74.5L37-64.1M74.5-43L64.1-37M74.5 43L64.1 37M43 74.5L37 64.1M-43 74.5L-37 64.1M-74.5 43L-64.1 37M-74.5-43L-64.1-37M-43-74.5L-37-64.1"/>
+              <line class="zeiger zeiger-h" id="uhr-h" x1="0" y1="6" x2="0" y2="-46"/>
+              <line class="zeiger zeiger-m" id="uhr-m" x1="0" y1="8" x2="0" y2="-68"/>
+              <line class="zeiger zeiger-s" id="uhr-s" x1="0" y1="14" x2="0" y2="-76"/>
+              <circle class="uhr-nabe" r="5"/>
+            </svg>
+            <p class="uhr-digital" id="uhr-zeit">--:--:--</p>
+            <p class="tafel-fuss" id="uhr-datum">&nbsp;</p>
+            <p class="tafel-fuss klein">Lienz, Osttirol</p>
+          </section>
+
+          <section class="f tafel" id="kalender" aria-labelledby="kal-titel">
+            <header class="tafel-kopf"><span class="tafel-nr">02</span><h2 id="kal-titel">Kalender</h2></header>
+            <p class="kal-monat" id="kal-monat">&nbsp;</p>
+            <div class="kal-raster" id="kal-raster"></div>
+          </section>
+
+          <section class="f tafel" id="pegel" aria-labelledby="pegel-titel">
+            <header class="tafel-kopf"><span class="tafel-nr">03</span><h2 id="pegel-titel">Pegel Isel in Lienz</h2></header>
+            <div class="pegel-zeile">
+              <div class="latte" id="latte" role="img" aria-label="Pegellatte">
+                <span class="latte-wasser"></span>
+                <span class="latte-skala"><i>400</i><i>300</i><i>200</i><i>100</i><i>0</i></span>
+              </div>
+              <div class="pegel-text">
+                <p class="pegel-wert"><span id="pegel-wert">–</span> <small>cm</small></p>
+                <p class="pegel-sub" id="pegel-tendenz">Wasserstand</p>
+                <dl class="werte eng">
+                  <div><dt>Wassertemperatur</dt><dd id="pegel-temp">–</dd></div>
+                </dl>
+              </div>
+            </div>
+            <p class="tafel-fuss klein" id="pegel-stand">Stand: –</p>
+            <p class="tafel-fuss klein">Messstelle Lienz am Fluss Isel, kurz vor der Mündung in die Drau. Quelle: Land Tirol, Hydro Online</p>
+          </section>
+
+          <section class="f tafel" id="wetter" aria-labelledby="wetter-titel">
+            <header class="tafel-kopf"><span class="tafel-nr">04</span><h2 id="wetter-titel">Wetter in Lienz</h2></header>
+            <div class="wetter-kopf">
+              <div class="wetter-icon" id="wetter-icon" aria-hidden="true">
+                <svg data-icon="sonne" viewBox="0 0 64 64"><circle cx="32" cy="32" r="11"/><path d="M32 6V14M32 50V58M6 32H14M50 32H58M13.6 13.6L19.3 19.3M44.7 44.7L50.4 50.4M13.6 50.4L19.3 44.7M44.7 19.3L50.4 13.6"/></svg>
+                <svg data-icon="teils" viewBox="0 0 64 64"><circle cx="23" cy="23" r="8"/><path d="M23 7V11M7 23H11M11.7 11.7L14.5 14.5M34.3 11.7L31.5 14.5"/><path d="M24 54H46A9 9 0 0 0 46 36A13 13 0 0 0 21 39A8 8 0 0 0 24 54Z"/></svg>
+                <svg data-icon="wolken" viewBox="0 0 64 64"><path d="M18 50H46A10 10 0 0 0 46 30A15 15 0 0 0 17 33A9.5 9.5 0 0 0 18 50Z"/></svg>
+                <svg data-icon="regen" viewBox="0 0 64 64"><path d="M18 40H46A10 10 0 0 0 46 20A15 15 0 0 0 17 23A9.5 9.5 0 0 0 18 40Z"/><path d="M22 47L19 56M33 47L30 56M44 47L41 56"/></svg>
+                <svg data-icon="schnee" viewBox="0 0 64 64"><path d="M18 40H46A10 10 0 0 0 46 20A15 15 0 0 0 17 23A9.5 9.5 0 0 0 18 40Z"/><path d="M22 48V50M33 48V50M44 48V50M27 55V57M38 55V57"/></svg>
+                <svg data-icon="nebel" viewBox="0 0 64 64"><path d="M10 24H54M16 34H58M10 44H48M18 54H52"/></svg>
+                <svg data-icon="gewitter" viewBox="0 0 64 64"><path d="M18 38H46A10 10 0 0 0 46 18A15 15 0 0 0 17 21A9.5 9.5 0 0 0 18 38Z"/><path d="M34 38L27 48H36L30 58"/></svg>
+              </div>
+              <div>
+                <p class="wetter-temp"><span id="wetter-temp">–</span></p>
+                <p class="wetter-text" id="wetter-text">Keine Daten</p>
+              </div>
+            </div>
+            <dl class="werte">
+              <div><dt>Gefühlt</dt><dd id="wetter-gefuehlt">–</dd></div>
+              <div><dt>Wind</dt><dd id="wetter-wind">–</dd></div>
+              <div><dt>Luftfeuchte</dt><dd id="wetter-feuchte">–</dd></div>
+              <div><dt>Niederschlag</dt><dd id="wetter-regen">–</dd></div>
+            </dl>
+            <p class="tafel-fuss klein" id="wetter-stand">Stand: –</p>
+            <p class="tafel-fuss klein">Quelle: Open-Meteo.com</p>
+          </section>
+        </div>
+      </div>
+
+      <p class="hinweis" id="hinweis" aria-hidden="true">Scrollen, um einzutreten</p>
+    </div>
+  </main>
+
+  <nav class="legal-footer" aria-label="Rechtliches">
+    <a href="mailto:info@tundra-beach.at">Kontakt</a>
+    <span aria-hidden="true">&middot;</span>
+    <a href="impressum.html">Impressum</a>
+    <span aria-hidden="true">&middot;</span>
+    <a href="datenschutz.html">Datenschutz</a>
+  </nav>
+
+  <script src="raum.js" defer></script>
+  <script src="tour.js" defer></script>
+</body>
+</html>
