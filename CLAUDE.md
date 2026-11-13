@@ -18,6 +18,12 @@ Webseite für www.tundra-beach.at – Spaßseite eines nicht eingetragenen Verei
 - `site.css`: alles Layout. Gang-Maße (`--b`, `--l`, `--z0` …) müssen zu den Konstanten in `tour.js` passen. Ein- und Rückwand sind absichtlich 8 kleiner als der Gang, sonst fehlen im Browser Stücke davon.
 - Meta-CSP in `index.html`: nur eigene Dateien, keine Inline-Styles und keine Inline-Skripte im HTML (Styles setzt JS über CSSOM).
 
+## Platzhalter ein- und ausschalten
+- Normalzustand: `index.html` = Seite, `wip.html` = alter Platzhalter "Work in Progress".
+- Schalter: GitHub → Actions → "Seite oder Platzhalter schalten" → Run workflow → `wip` oder `seite`. Der Workflow tauscht die Dateien (`scripts/umschalten.sh`), im Platzhalter-Zustand liegt die Seite als `seite.html` bereit (Vorschau). Dauert etwa 1 bis 2 Minuten.
+- Ohne Actions: `scripts/umschalten.sh wip` bzw. `seite`, committen, pushen. Oder auf GitHub den Merge-Pull-Request mit "Revert" zurücknehmen.
+- `index.html` und `wip.html` nicht von Hand umbenennen oder löschen, sonst erkennt das Skript den Zustand nicht mehr.
+
 ## Live-Daten
 - `data/live.json` wird alle 30 Min von `.github/workflows/live-daten.yml` über `scripts/live-daten.mjs` aktualisiert (Wetter: Open-Meteo, Lienz; Pegel: Land Tirol Hydro Online, Messstelle Isel/Lienz Nr. 212167). Scheduled Workflows laufen nur auf `main`.
 - Die Seite liest nur diese Datei, Besucher sprechen mit keinem Dritten. Schlägt ein Abruf fehl, bleibt der letzte Stand samt Zeitstempel; älter als 6 h wird als "Letzter bekannter Stand" markiert.

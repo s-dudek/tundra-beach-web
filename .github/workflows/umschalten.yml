@@ -1,0 +1,48 @@
+name: Seite oder Platzhalter schalten
+
+# Von Hand starten: GitHub → Actions → "Seite oder Platzhalter schalten" → Run workflow.
+#   wip   = "Work in Progress" unter www.tundra-beach.at, die Seite bleibt als /seite.html erreichbar
+#   seite = die Seite unter www.tundra-beach.at
+on:
+  workflow_dispatch:
+    inputs:
+      modus:
+        description: "Was soll unter www.tundra-beach.at laufen?"
+        type: choice
+        required: true
+        options:
+          - wip
+          - seite
+
+permissions:
+  contents: write
+
+concurrency:
+  group: main-schreiben
+  cancel-in-progress: false
+
+jobs:
+  schalten:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Umschalten
+        env:
+          MODUS: ${{ inputs.modus }}
+        run: bash scripts/umschalten.sh "$MODUS"
+
+      - name: Änderung committen
+        env:
+          MODUS: ${{ inputs.modus }}
+        run: |
+          if git diff --cached --quiet; then
+            echo "Keine Änderung."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Umgeschaltet auf: ${MODUS}"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
