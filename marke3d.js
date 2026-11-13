@@ -19,6 +19,7 @@
   const blasenHalter = document.getElementById('blasen');
   const zurueck = document.getElementById('zurueck');
   const nachoben = document.getElementById('nachoben');
+  const stand = document.getElementById('spielstand');
   if (!G || !D || !T || !tour || !canvas) return;
 
   const reduziert = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -73,7 +74,8 @@
   const P_GRUPPE = [0.36, 0.7];                                     // hier sind die Blasen im Bild
   const P_UNTEN = 0.88;                                             // ab hier erscheint "To the top"
   const K = (p, gier, nick, roll, f, zoom) => ({ p, gier, nick, roll, f, zoom });
-  const MAX_KLEIN = 90;                                             // Blasen, die der Zeiger hinterlässt, höchstens gleichzeitig
+  const MAX_KLEIN = 90;
+  const MAX_SPIEL = 14;                                             // Platzblasen, die man anklicken kann, höchstens gleichzeitig                                             // Blasen, die der Zeiger hinterlässt, höchstens gleichzeitig
 
   /* ---------- Zeiten ---------- */
   const INTRO = 7.5;          // Sekunden: Auftauchen
@@ -605,26 +607,33 @@
 
   // Blasen, die der Zeiger hinterlässt: Ort + Radius, Deckkraft; gleiche Optik wie die Luftblasen
   const VS_KLEIN = `#version 300 es
-  layout(location=0) in vec4 a_b; layout(location=1) in float a_a;
+  layout(location=0) in vec4 a_b; layout(location=1) in float a_a; layout(location=2) in vec2 a_s;
   uniform mat4 u_vp; uniform vec3 u_cam; uniform float u_focal; uniform float u_maxPt; uniform float u_fokus;
-  out float v_alpha; out float v_unsch;
+  out float v_alpha; out float v_unsch; out float v_gold; out float v_pop;
   void main(){
     float dist = length(a_b.xyz - u_cam);
-    gl_PointSize = clamp(2.0 * a_b.w * u_focal / max(dist, 0.05), 2.0, u_maxPt);
+    gl_PointSize = clamp(2.0 * a_b.w * u_focal / max(dist, 0.05) * (1.0 + 0.7 * a_s.y), 2.0, u_maxPt);
     gl_Position = u_vp * vec4(a_b.xyz, 1.0);
-    v_unsch = clamp(abs(dist - u_fokus) / (u_fokus * 1.2), 0.0, 1.0) * 0.6; v_alpha = a_a;
+    v_unsch = clamp(abs(dist - u_fokus) / (u_fokus * 1.2), 0.0, 1.0) * 0.6; v_alpha = a_a; v_gold = a_s.x; v_pop = a_s.y;
   }`;
   const FS_KLEIN = `#version 300 es
   precision highp float;
-  in float v_alpha; in float v_unsch;
+  in float v_alpha; in float v_unsch; in float v_gold; in float v_pop;
   out vec4 o;
   ${BLASE_GLSL}
   void main(){
     vec2 pc = gl_PointCoord * 2.0 - 1.0; float d = length(pc);
     if (d > 1.0) discard;
+    if (v_pop > 0.0) {                                              // Platzen: nur noch ein dünner Ring, der sich weitet und verblasst
+      float ring = smoothstep(0.74, 0.9, d) * (1.0 - smoothstep(0.92, 1.0, d));
+      float a = ring * (1.0 - v_pop) * 0.95;
+      o = vec4(mix(vec3(0.85, 0.97, 1.0), vec3(1.0, 0.86, 0.4), v_gold) * a, a);
+      return;
+    }
     vec4 b = blase(pc, d, v_unsch);
-    float a = clamp(b.a * 1.3, 0.0, 1.0) * v_alpha;
-    o = vec4(b.rgb * a, a);
+    vec3 rgb = mix(b.rgb, vec3(1.0, 0.82, 0.32), v_gold * 0.6);
+    float a = clamp(b.a * (1.3 + v_gold * 0.5), 0.0, 1.0) * v_alpha;
+    o = vec4(rgb * a, a);
   }`;
 
   function programm(gl, vs, fs) {
@@ -662,7 +671,8 @@
 
     let pTiefe; let pHinter; let pTeil; let pBlase; let pSymbol; let pKlein; let fbo; let tiefe; let vaoQ; let vaoT; let teilAnzahl = 0; let maxPunkt = 64;
     let kugelVAO; let kugelAnzahl = 0; let symbolVAO; let klVAO; let klBuf; let kam = null;
-    const klDaten = new Float32Array(MAX_KLEIN * 5); const kl = []; const symbole = {}; const blasenAnsicht = {};
+    const klDaten = new Float32Array(MAX_KLEIN * 5); const kl = [];
+    const spiel = []; const spielDaten = new Float32Array(MAX_SPIEL * 7); let spielVAO; let spielBuf; let spielAn = false; let spielTimer = 0; let spielNeu = true; const symbole = {}; const blasenAnsicht = {};
     const SK = 1536;
     if (!mini) {
       pTiefe = programm(gl, VS_TIEFE, FS_TIEFE);
@@ -717,6 +727,11 @@
       klBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, klBuf); gl.bufferData(gl.ARRAY_BUFFER, klDaten.byteLength, gl.DYNAMIC_DRAW);
       gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 20, 0);
       gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 20, 16);
+      spielVAO = gl.createVertexArray(); gl.bindVertexArray(spielVAO); // Platzblasen: Ort + Radius, Deckkraft, Gold + Platzen
+      spielBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, spielBuf); gl.bufferData(gl.ARRAY_BUFFER, spielDaten.byteLength, gl.DYNAMIC_DRAW);
+      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 28, 0);
+      gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 28, 16);
+      gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 28, 20);
       const aniso = gl.getExtension('EXT_texture_filter_anisotropic');
       SCHLUESSEL.forEach((key) => {
         const tx = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tx);
@@ -911,6 +926,23 @@
           gl.bufferSubData(gl.ARRAY_BUFFER, 0, klDaten, 0, kl.length * 5);
           gl.drawArrays(gl.POINTS, 0, kl.length);
         }
+        // Platzblasen zum Anklicken
+        if (spiel.length) {
+          spiel.forEach((b, i) => {
+            const pop = b.popT >= 0 ? Math.min(1, b.popT / 0.34) : 0;
+            const a = b.popT >= 0 ? 1 : smooth(0, 0.5, b.t);
+            spielDaten.set([b.p[0], b.p[1], b.p[2], b.r * (1 + 0.03 * Math.sin(b.t * 3 + b.ph)), a, b.gold ? 1 : 0, pop], i * 7);
+          });
+          gl.useProgram(pKlein);
+          gl.uniformMatrix4fv(u(pKlein, 'u_vp'), false, vp);
+          gl.uniform3fv(u(pKlein, 'u_cam'), cam);
+          gl.uniform1f(u(pKlein, 'u_focal'), (zielCanvas.height / 2) / Math.tan(FOV / 2));
+          gl.uniform1f(u(pKlein, 'u_maxPt'), maxPunkt);
+          gl.uniform1f(u(pKlein, 'u_fokus'), abst);
+          gl.bindVertexArray(spielVAO); gl.bindBuffer(gl.ARRAY_BUFFER, spielBuf);
+          gl.bufferSubData(gl.ARRAY_BUFFER, 0, spielDaten, 0, spiel.length * 7);
+          gl.drawArrays(gl.POINTS, 0, spiel.length);
+        }
         gl.depthMask(true); gl.disable(gl.BLEND);
       }
     }
@@ -938,15 +970,71 @@
         kl.push({ p: ort, r: (3 + 11 * Math.random() ** 2.2) * proPx, steig: (50 + 90 * Math.random()) * proPx, ph: Math.random() * 6.283, t: 0, leben: 2.2 + 2.2 * Math.random(), rechts: kam.rechts });
       }
     }
+    // Kleine Tröpfchen-Blasen an einem Weltpunkt, die auseinanderstieben (beim Platzen)
+    function blasenWelt(pos, r, anzahl) {
+      if (!kam) return;
+      for (let i = 0; i < anzahl; i += 1) {
+        if (kl.length >= MAX_KLEIN) kl.shift();
+        const w = Math.random() * 6.283; const sp = r * (1.6 + 3 * Math.random());
+        const v = [0, 1, 2].map((j) => (kam.rechts[j] * Math.cos(w) + kam.hoch[j] * Math.sin(w)) * sp);
+        kl.push({ p: pos.slice(), r: r * (0.1 + 0.2 * Math.random()), steig: r * 0.8, ph: Math.random() * 6.283, t: 0, leben: 0.7 + 0.8 * Math.random(), rechts: kam.rechts, v });
+      }
+    }
+
+    // Platzblasen: steigen von unten durchs Bild, wer sie anklickt, lässt sie platzen
+    function spielNeueBlase(imBild) {
+      const ndx = (Math.random() * 1.9 - 0.95); const ndy = imBild ? Math.random() * 1.5 - 0.75 : -1.15 - Math.random() * 0.2;
+      const d = kam.abst * (0.7 + 0.5 * Math.random());
+      const proPx = (2 * d * kam.tan) / letzteHoehe; const gold = Math.random() < 0.09;
+      const px = gold ? 26 + 10 * Math.random() : 20 + 34 * Math.random() ** 1.4;
+      const ort = [0, 1, 2].map((j) => kam.pos[j] + (kam.vor[j] + kam.rechts[j] * ndx * kam.tan * kam.asp + kam.hoch[j] * ndy * kam.tan) * d);
+      spiel.push({ p: ort, r: px * proPx, steig: (34 + 56 * Math.random()) * (gold ? 1.5 : 1) * proPx, ph: Math.random() * 6.283, t: 0, popT: -1, weg: 0, gold, rechts: kam.rechts, sx: -999, sy: -999, sr: 0, w: 1 });
+    }
+    function spielSchritt(dt) {
+      if (mini || !kam || !spielAn) { if (!spielAn) spiel.forEach((b) => { if (b.popT < 0) b.popT = 0; }); }
+      if (mini || !kam) return;
+      const ziel = window.innerWidth < 700 ? 6 : 9;
+      const foc = (letzteHoehe / 2) / Math.tan(FOV / 2);
+      for (let i = spiel.length - 1; i >= 0; i -= 1) {
+        const b = spiel[i]; b.t += dt;
+        if (b.popT >= 0) { b.popT += dt; if (b.popT > 0.34) spiel.splice(i, 1); continue; }
+        const quer = Math.cos(b.t * 1.7 + b.ph) * b.r * 2.2 * dt;
+        b.p[0] += b.rechts[0] * quer; b.p[1] += b.steig * dt; b.p[2] += b.rechts[2] * quer;
+        const q = projiziere(b.p); b.sx = q.x; b.sy = q.y; b.w = q.w; b.sr = q.w > 0 ? (b.r * foc) / q.w : 0;
+        const aus = q.w <= 0 || q.x < -b.sr * 2 || q.x > letzteBreite + b.sr * 2 || q.y < -b.sr * 2 || (q.y > letzteHoehe + b.sr * 2 && b.t > 8);
+        b.weg = aus ? b.weg + dt : 0;
+        if (b.weg > 1.5 || b.t > 45) spiel.splice(i, 1);
+      }
+      if (!spielAn) return;
+      if (spielNeu) { spielNeu = false; for (let n = 0; n < ziel; n += 1) spielNeueBlase(true); }
+      spielTimer -= dt;
+      if (spiel.length < ziel && spielTimer <= 0) { spielTimer = 0.5 + Math.random() * 0.9; spielNeueBlase(false); }
+    }
+    // Welche Platzblase liegt unter dem Zeiger? (die vorderste); -1 = keine
+    function spielTreffer(x, y) {
+      let best = -1; let bw = 1e9;
+      spiel.forEach((b, i) => { if (b.popT < 0 && b.sr > 0 && b.w > 0 && Math.hypot(x - b.sx, y - b.sy) < b.sr * 1.2 + 6 && b.w < bw) { best = i; bw = b.w; } });
+      return best;
+    }
+    function spielPlatzen(i) {
+      const b = spiel[i]; if (!b) return { gold: false };
+      b.popT = 0; blasenWelt(b.p, b.r, b.gold ? 14 : 7);
+      return { gold: b.gold };
+    }
     function blasenSchritt(dt) {
+      spielSchritt(dt);
       for (let i = kl.length - 1; i >= 0; i -= 1) {
         const b = kl[i]; b.t += dt;
         if (b.t >= b.leben) { kl.splice(i, 1); continue; }
         const quer = Math.cos(b.t * 2.6 + b.ph) * b.r * 3 * dt;
         b.p[0] += b.rechts[0] * quer; b.p[1] += b.steig * dt * (0.6 + 0.4 * smooth(0, 1.2, b.t)); b.p[2] += b.rechts[2] * quer;
+        if (b.v) { for (let j = 0; j < 3; j += 1) b.p[j] += b.v[j] * dt; const f = Math.max(0, 1 - 3.2 * dt); b.v = b.v.map((x) => x * f); }
       }
     }
-    return { zeichnen, symbolAktualisieren, projiziere, aspekt: aspektJetzt, blasen: blasenAnsicht, streuen: blasenStreuen, schritt: blasenSchritt };
+    return {
+      zeichnen, symbolAktualisieren, projiziere, aspekt: aspektJetzt, blasen: blasenAnsicht, streuen: blasenStreuen, schritt: blasenSchritt,
+      spielTreffer, spielPlatzen, spielAn(an) { spielAn = an; },
+    };
   }
 
 
@@ -1025,7 +1113,20 @@
       return best;
     };
 
+    // Platzblasen: Anklicken lässt sie platzen und zählt
+    let geplatzt = 0; let meldung = null;
+    function gezaehlt(erg) {
+      geplatzt += erg.gold ? 5 : 1;
+      if (!stand) return;
+      stand.classList.add('da');
+      const text = erg.gold ? `Goldene Blase! +5 · ${geplatzt}` : ([10, 25, 50, 100].includes(geplatzt) ? `Blubb! ${geplatzt} geplatzt` : `Geplatzt: ${geplatzt}`);
+      stand.textContent = text;
+      stand.classList.remove('puls'); void stand.offsetWidth; stand.classList.add('puls');
+      clearTimeout(meldung); meldung = setTimeout(() => { stand.textContent = `Geplatzt: ${geplatzt}`; }, 2200);
+    }
+
     canvas.addEventListener('pointerdown', (e) => {
+      if (!reduziert) { const i = motor.spielTreffer(e.clientX, e.clientY); if (i >= 0) { gezaehlt(motor.spielPlatzen(i)); return; } }
       zieht = true; lastX = e.clientX; lastY = e.clientY; startT = performance.now(); bewegt = 0; vGier = 0; vNick = 0;
       canvas.setPointerCapture(e.pointerId); canvas.classList.add('zieht');
       if (!reduziert) motor.streuen(e.clientX, e.clientY, 5);
@@ -1065,7 +1166,7 @@
       if (!reduziert) for (let n = 0; spur > 26 && n < 4; n += 1) { spur -= 26; motor.streuen(e.clientX, e.clientY, Math.random() < 0.3 ? 2 : 1); }
       if (spur > 26) spur = 0;
       zielHover = treffer(e.clientX, e.clientY);
-      canvas.classList.toggle('ueber-blase', !!zielHover && modus !== 'tafel');
+      canvas.classList.toggle('ueber-blase', (!!zielHover && modus !== 'tafel') || (!reduziert && motor.spielTreffer(e.clientX, e.clientY) >= 0));
     }, { passive: true });
 
     /* --- Untermenü öffnen und schließen --- */
@@ -1215,6 +1316,7 @@
       const hub = (modus === 'start' ? Math.sin(t * 0.85) * 0.035 * sanft : 0) + 0.95 * rest * rest;
       drift += dt * (0.3 + 6.5 * rest * rest * rest + Math.abs(velP.v) * 10);   // beim Scrollen ziehen die Teilchen mit
       const tiefe = clamp(0.1 + 0.9 * rest * rest + 0.4 * smooth(0, 8, -P.fy), 0, 1) * (modus === 'tafel' ? 0.5 : 1);   // je tiefer, desto dunkler
+      motor.spielAn(introT > INTRO * 0.6);
       motor.schritt(dt);
       motor.zeichnen({
         gier: P.gier - 342 * rest * rest + offGier + Math.sin(t * 0.5) * 1.6 * sanft,
