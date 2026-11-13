@@ -17,6 +17,8 @@
   const miniCanvas = document.getElementById('mini3d');
   const blasenHalter = document.getElementById('blasen');
   const zurueck = document.getElementById('zurueck');
+  const titel = document.getElementById('titel');
+  const nachoben = document.getElementById('nachoben');
   if (!G || !D || !T || !tour || !canvas) return;
 
   const reduziert = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -41,27 +43,27 @@
   const SVG_QUELLE = 'gesamt-4c_web.svg';
 
   /* ---------- Bereiche als Blasen im Wasser ---------- */
-  // Lage in der Startansicht: [rechts, hoch, Tiefe] im Blickfeld, für Querformat (quer) und Hochformat (hoch);
-  // unten = der Name steht oberhalb der Blase (zur Marke hin), damit er nicht am Bildrand klebt.
-  // Die Kamera behält beim Besuch ihre Blickrichtung: Scrollen und Klicken zoomen nur hinein und wieder hinaus.
+  // Oben steht die Marke mit der Begrüßung. Beim Scrollen schaut die Kamera nach unten (sie sinkt im Wasser):
+  // darunter schweben die vier Blasen, ganz unten wartet "To the top".
   const S_GIER = -18; const S_NICK = 6; const S_ZOOM = 1.05;       // Anfangsperspektive: ganze Marke im Bild
+  const G_GIER = -8; const G_NICK = 16;                             // Blick auf die Blasen (von oben, etwas nach unten geneigt)
+  const GRUPPE = [0, -6.2, 0];                                      // Mitte der vier Blasen
+  const UNTEN = [0, -8.9, 0];                                       // Ende der Reise
+  const TITEL_ANKER = [0, 1.28, 0];                                 // Begrüßung steht über der Marke
   const BLASE_R = 0.42;                                             // Radius einer Blase (die Marke ist 2 hoch)
+  // Lage der Blasen um GRUPPE: [rechts, hoch, Tiefe] für Querformat (quer) und Hochformat (hoch)
   const BLASEN = {
-    wasserstand: { titel: 'Wasserstand', quer: [-2.15, 0.9, 0.5], hoch: [-0.75, 1.95, 0.3] },
-    wetter: { titel: 'Wetter', quer: [2.05, 1.1, -0.7], hoch: [0.75, 2.1, -0.4] },
-    kalender: { titel: 'Kalender', quer: [-1.9, -0.95, -0.6], hoch: [-0.75, -1.75, -0.4], unten: true },
-    kontakt: { titel: 'Kontakt', quer: [2.2, -0.8, 0.5], hoch: [0.75, -1.8, 0.2], unten: true },
+    wasserstand: { titel: 'Wasserstand', quer: [-1.5, 0.8, 0.3], hoch: [-0.75, 1.3, 0.3] },
+    wetter: { titel: 'Wetter', quer: [1.5, 0.95, -0.3], hoch: [0.75, 1.45, -0.3] },
+    kalender: { titel: 'Kalender', quer: [-1.5, -0.8, -0.3], hoch: [-0.75, -1.2, -0.3] },
+    kontakt: { titel: 'Kontakt', quer: [1.5, -0.85, 0.3], hoch: [0.75, -1.3, 0.3] },
   };
   const SCHLUESSEL = Object.keys(BLASEN);
   const ALIAS = { uhr: 'kalender' };                                // alte Adresse #uhr führt zum Kalender (dort steht auch die Uhr)
-  // Reise beim Scrollen = Zoomen: immer auf den Mittelpunkt der Marke zu und wieder zurück in die Anfangsansicht
+  // Reise beim Scrollen (Fortschritt 0 bis 1): Begrüßung, nach unten schauen, bei den Blasen verweilen, tiefer bis "To the top"
+  const P_GRUPPE = [0.36, 0.7];                                     // hier sind die Blasen im Bild
+  const P_UNTEN = 0.88;                                             // ab hier erscheint "To the top"
   const K = (p, gier, nick, roll, f, zoom) => ({ p, gier, nick, roll, f, zoom });
-  const MITTE = [0, 0, 0.1]; const TIEFE_ZOOM = 3.4;               // so nah kommt man beim Hineinzoomen
-  const BAHN = [
-    K(0, S_GIER, S_NICK, 0, [0, 0, 0], S_ZOOM), K(0.05, S_GIER, S_NICK, 0, [0, 0, 0], S_ZOOM),   // Übersicht
-    K(0.44, S_GIER, S_NICK, 0, MITTE, TIEFE_ZOOM), K(0.56, S_GIER, S_NICK, 0, MITTE, TIEFE_ZOOM),   // ganz nah, kurz verweilen
-    K(0.95, S_GIER, S_NICK, 0, [0, 0, 0], S_ZOOM), K(1, S_GIER, S_NICK, 0, [0, 0, 0], S_ZOOM),     // zurück
-  ];
   const MAX_KLEIN = 90;                                             // Blasen, die der Zeiger hinterlässt, höchstens gleichzeitig
 
   /* ---------- Zeiten ---------- */
@@ -137,19 +139,38 @@
     dreheZ(a) { const c = Math.cos(a); const s = Math.sin(a); return new Float32Array([c, s, 0, 0, -s, c, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]); },
   };
 
-  // Lage der Blasen: in Koordinaten der Anfangsansicht festgelegt, hier in Weltkoordinaten umgerechnet (leichtes Schweben)
-  const LAGE = 1.28 / S_ZOOM;                                       // Lage wurde für Zoom 1,28 entworfen: bei weiterer Ansicht entsprechend nach außen
-  const R0 = mat.mul(mat.dreheX(rad(S_NICK)), mat.dreheY(rad(S_GIER)));
+  // Lage der Blasen in der Welt (leichtes Schweben)
   function blasenPos(key, zeit, asp) {
     const b = BLASEN[key]; const q = smooth(0.6, 1.2, asp);
-    const l = [0, 1, 2].map((i) => lerp(b.hoch[i], b.quer[i], q) * LAGE);
-    l[0] += Math.sin(zeit * 0.5 + b.quer[0] * 3) * 0.05; l[1] += Math.sin(zeit * 0.43 + b.quer[1] * 5) * 0.09; l[2] += Math.sin(zeit * 0.37 + b.quer[2] * 4) * 0.05;
-    return [0, 1, 2].map((r) => R0[r * 4] * l[0] + R0[r * 4 + 1] * l[1] + R0[r * 4 + 2] * l[2]);
+    const l = [0, 1, 2].map((i) => lerp(b.hoch[i], b.quer[i], q));
+    return [
+      GRUPPE[0] + l[0] + Math.sin(zeit * 0.5 + b.quer[0] * 3) * 0.05,
+      GRUPPE[1] + l[1] + Math.sin(zeit * 0.43 + b.quer[1] * 5) * 0.09,
+      GRUPPE[2] + l[2] + Math.sin(zeit * 0.37 + b.quer[2] * 4) * 0.05,
+    ];
   }
   // Kamera bei einer Blase: Blickpunkt in der Mitte, sie füllt etwa drei Viertel der Höhe (oder 90 % der Breite)
   function blasePose(key, zeit, asp) {
-    const b = BLASEN[key]; const halbH = Math.max(2.2, 1.7 / asp);
-    return { gier: S_GIER, nick: S_NICK, roll: 0, f: blasenPos(key, zeit, asp), zoom: (halbH * Math.min(0.74, 0.9 * asp)) / BLASE_R };
+    const halbH = Math.max(2.2, 1.7 / asp);
+    return { gier: G_GIER, nick: G_NICK, roll: 0, f: blasenPos(key, zeit, asp), zoom: (halbH * Math.min(0.74, 0.9 * asp)) / BLASE_R };
+  }
+  // Kamera bei der ganzen Gruppe: alle vier Blasen samt Namen im Bild
+  function gruppePose(asp) {
+    const halbH = Math.max(2.2, 1.7 / asp); const q = smooth(0.6, 1.2, asp);
+    let x = 0; let y = 0;                                             // wie weit die Blasen samt Namen von der Mitte weg liegen
+    SCHLUESSEL.forEach((k) => { const b = BLASEN[k]; x = Math.max(x, Math.abs(lerp(b.hoch[0], b.quer[0], q))); y = Math.max(y, Math.abs(lerp(b.hoch[1], b.quer[1], q))); });
+    const zoom = Math.min((halbH * asp) / (x + 0.65), halbH / (y + BLASE_R + 0.5));
+    return { gier: G_GIER, nick: G_NICK, roll: 0, f: GRUPPE, zoom };
+  }
+  // Die Bahn hängt vom Seitenverhältnis ab (damit die Gruppe in jedes Fenster passt)
+  function bahnBauen(asp) {
+    const g = gruppePose(asp);
+    const start = (pp) => K(pp, S_GIER, S_NICK, 0, [0, 0, 0], S_ZOOM);
+    return [
+      start(0), start(0.06),
+      K(P_GRUPPE[0], g.gier, g.nick, 0, g.f, g.zoom), K(P_GRUPPE[1], g.gier, g.nick, 0, g.f, g.zoom),
+      K(P_UNTEN, g.gier + 4, g.nick - 4, 0, UNTEN, g.zoom * 0.95), K(1, g.gier + 4, g.nick - 4, 0, UNTEN, g.zoom * 0.95),
+    ];
   }
 
   const linear = (hex) => {
@@ -469,7 +490,7 @@
       gl_Position = vec4(n, fract(s * 53.1) < 0.4 ? -0.9 : 0.995, 1.0);   // ein Teil vor, ein Teil hinter den Körpern
       gl_PointSize = clamp(mix(0.04, 0.17, pow(fract(s * 5.3), 1.5)) * max(0.5, 1.0 + 0.2 * u_pose.z * tf) * u_focal / 2.835, 10.0, u_maxPt);
       v_alpha = 0.2 * (0.65 + 0.35 * sin(u_zeit * 0.3 + s * 40.0)) * (1.0 - 0.4 * u_tiefe);
-      if (fract(s * 31.7) > 0.3) gl_Position = vec4(3.0, 3.0, 3.0, 1.0);   // nur wenige zugleich im Bild
+      if (fract(s * 31.7) > 0.24) gl_Position = vec4(3.0, 3.0, 3.0, 1.0);   // nur wenige zugleich im Bild
     }
   }`;
   // Aussehen einer Luftblase im Punktsprite: heller Rand, Glanzbogen, Glanzpunkt, sonst fast durchsichtig
@@ -858,7 +879,9 @@
     let offGier = 0; let offNick = 0;
     const zielG = { w: 0 }; const zielN = { w: 0 };
     let modus = 'start'; let aktiv = null; let flug = 0; let p = festP === null ? 0 : festP;
-    let eigenerEintrag = false;
+    let eigenerEintrag = false; let zurueckP = (P_GRUPPE[0] + P_GRUPPE[1]) / 2; let fahrt = null;
+    const maxScroll = () => Math.max(1, tour.offsetHeight - window.innerHeight);
+    const scrollZu = (pp) => window.scrollTo(0, pp * maxScroll());
     let t = 0; let introT = festP === null && !reduziert ? 0 : INTRO;
     const velG = { v: 0 }; const velN = { v: 0 }; const velP = { v: 0 };
     const grenze = () => (modus === 'tafel' ? 30 : 1e9);
@@ -873,7 +896,7 @@
     const blasenEl = {};
     SCHLUESSEL.forEach((key) => {
       const b = BLASEN[key];
-      const el = document.createElement('div'); el.className = b.unten ? 'blase unten' : 'blase';   // untere Blasen tragen den Namen oben, zur Marke hin
+      const el = document.createElement('div'); el.className = 'blase';
       const knopf = document.createElement('button'); knopf.type = 'button'; knopf.className = 'blase-name';
       const t1 = document.createElement('span'); t1.textContent = b.titel;
       knopf.append(t1);
@@ -894,7 +917,8 @@
       const fremd = 1 - smooth(1.7, 2.6, zoom);
       SCHLUESSEL.forEach((key) => {
         const { el, knopf } = blasenEl[key]; const a = motor.blasen[key]; const f = fokus[key] || 0;
-        const op = a && a.w > 0 ? lerp(fremd, 1, f) * sichtbar : 0;
+        const imBild = a && a.w > 0 && a.x > -a.r * 0.5 && a.x < window.innerWidth + a.r * 0.5 && a.y > -a.r * 0.5 && a.y < window.innerHeight + a.r * 0.5;
+        const op = imBild ? lerp(fremd, 1, f) * sichtbar : 0;
         el.style.opacity = op > 0.01 ? op.toFixed(3) : '0';
         if (op > 0.01) {
           el.style.transform = `translate(${a.x.toFixed(1)}px, ${a.y.toFixed(1)}px)`;
@@ -965,7 +989,8 @@
     function oeffnen(key0, mitFlug, ausHistorie) {
       const key = wahl(key0);
       if (!gueltig(key)) return;
-      modus = 'tafel'; aktiv = key; if (mitFlug) flug = 1;
+      if (modus === 'start') zurueckP = Math.min(Math.max(p, P_GRUPPE[0]), P_GRUPPE[1]);
+      modus = 'tafel'; aktiv = key; if (mitFlug) flug = 1; fahrt = null;
       zielG.w = 0; zielN.w = 0; ruheSeit = 0;
       wurzel.classList.add('untermenue'); hinweis.classList.add('weg');
       if (!ausHistorie) { history.pushState({ tafel: key }, '', `#${key}`); eigenerEintrag = true; }
@@ -975,7 +1000,7 @@
       if (modus !== 'tafel') return;
       modus = 'start'; aktiv = null; flug = 1;
       wurzel.classList.remove('untermenue');
-      window.scrollTo(0, 0); p = 0; velP.v = 0;
+      scrollZu(zurueckP); p = reduziert ? 0 : zurueckP; velP.v = 0;                      // zurück zu den Blasen, von wo man kam
       if (!ausHistorie) {
         if (eigenerEintrag) { eigenerEintrag = false; history.back(); } else history.replaceState(null, '', window.location.pathname + window.location.search);
       }
@@ -986,6 +1011,22 @@
       const k = wahl(window.location.hash.slice(1));
       if (gueltig(k)) oeffnen(k, true, true); else schliessen(true);
     });
+
+    // Begrüßung über der Marke: hängt in der Welt, wandert beim Scrollen mit nach oben aus dem Bild
+    function titelSetzen(sicht) {
+      if (!titel) return;
+      const q = motor.projiziere(TITEL_ANKER);
+      const o = q.w > 0 ? sicht : 0;
+      titel.style.opacity = o > 0.01 ? o.toFixed(3) : '0';
+      if (o > 0.01) titel.style.transform = `translate(${q.x.toFixed(1)}px, ${q.y.toFixed(1)}px) translate(-50%, -100%)`;
+    }
+
+    // "To the top": fährt weich nach oben, jede Eingabe des Besuchers bricht die Fahrt ab
+    if (nachoben) nachoben.addEventListener('click', () => {
+      const von = window.scrollY; if (von < 2) return;
+      fahrt = { von, t0: performance.now(), dauer: (1.8 + 2.4 * von / maxScroll()) * 1000 };
+    });
+    ['wheel', 'touchstart', 'keydown'].forEach((ev) => window.addEventListener(ev, (e) => { if (!(ev === 'keydown' && e.key === 'Escape')) fahrt = null; }, { passive: true }));
 
     // Das Home-Logo gibt es nur, solange man nicht auf der Startseite ist
     const miniZeigen = () => {
@@ -999,10 +1040,12 @@
       // Ruhig: Standbild, die Blasen sind zugleich das Menü, kein Flug
       const standbild = () => {
         const asp = motor.aspekt();
-        const z0 = modus === 'tafel' ? blasePose(aktiv, 0, asp) : { gier: S_GIER, nick: S_NICK, roll: 0, f: [0, 0, 0], zoom: S_ZOOM };
+        const halbH = Math.max(2.2, 1.7 / asp);
+        const z0 = modus === 'tafel' ? blasePose(aktiv, 0, asp) : { gier: G_GIER + 6, nick: G_NICK - 8, roll: 0, f: [0, -3.1, 0], zoom: Math.min(halbH / 4.9, (halbH * asp) / 3.4) };
         const fokus = {}; SCHLUESSEL.forEach((k) => { fokus[k] = modus === 'tafel' && k === aktiv ? 1 : 0; });
         motor.zeichnen({ gier: z0.gier + offGier, nick: clamp(z0.nick + offNick, -85, 85), roll: z0.roll, f: z0.f, zoom: z0.zoom, hub: 0, licht: 0, drift: 0, zeit: 0, tiefe: 0.1, fokus });
         beschriften(fokus, z0.zoom, 1);
+        titelSetzen(modus === 'start' ? 1 : 0);
         miniZeigen();
         if (mini) mini.zeichnen({ gier: -20, nick: 6, roll: 0, f: [0, 0, 0], zoom: 2.05, hub: 0, licht: 0, drift: 0, zeit: 0, tiefe: 0 });
       };
@@ -1022,7 +1065,7 @@
 
     /* --- Animationsschleife --- */
     const hashStart = wahl(window.location.hash.slice(1));
-    const b0 = gueltig(hashStart) ? null : bahnWert(p, BAHN);
+    const b0 = gueltig(hashStart) ? null : bahnWert(p, bahnBauen(motor.aspekt()));
     const q0 = gueltig(hashStart) ? blasePose(hashStart, 0, motor.aspekt()) : null;
     const s0 = b0 || { gier: q0.gier, nick: q0.nick, roll: 0, f: q0.f, zoom: q0.zoom };
     const P = { gier: s0.gier, nick: s0.nick, roll: s0.roll, fx: s0.f[0], fy: s0.f[1], fz: s0.f[2], lz: Math.log(s0.zoom) };
@@ -1047,11 +1090,14 @@
     const bild = (jetzt) => {
       const dt = Math.min(0.05, Math.max(0.001, (jetzt - letzte) / 1000)); letzte = jetzt; t += dt; introT += dt;
       flug = Math.max(0, flug - dt / FLUG);
+      if (fahrt) {                                          // "To the top": sanft nach oben scrollen
+        const k = clamp((jetzt - fahrt.t0) / fahrt.dauer); const e = k < 0.5 ? 4 * k * k * k : 1 - (-2 * k + 2) ** 3 / 2;
+        window.scrollTo(0, fahrt.von * (1 - e)); if (k >= 1) fahrt = null;
+      }
 
       // Scroll-Fortschritt, weich nachgezogen (im Untermenü eingefroren)
       if (modus === 'start') {
-        const max = Math.max(1, tour.offsetHeight - window.innerHeight);
-        const ziel = festP !== null ? festP : clamp(window.scrollY / max);
+        const ziel = festP !== null ? festP : clamp(window.scrollY / maxScroll());
         p = glatt(p, ziel, velP, SCROLL_GLATT, dt);
         if (p > 0.02) hinweis.classList.add('weg');
       }
@@ -1066,7 +1112,7 @@
 
       // Ziel der Kamera: Reise beim Scrollen, Blase im Untermenü. Zwischen beiden fliegt sie weich.
       const asp = motor.aspekt();
-      const zp = modus === 'tafel' ? blasePose(aktiv, t, asp) : bahnWert(p, BAHN);
+      const zp = modus === 'tafel' ? blasePose(aktiv, t, asp) : bahnWert(p, bahnBauen(asp));
       const zeit = 0.18 + 0.85 * flug * flug;                 // beim Flug langsam, sonst eng am Ziel
       P.gier = glatt(P.gier, P.gier + umbruch(zp.gier - P.gier), V.gier, zeit * 0.5, dt);   // die Kamera wendet sich schneller zum Ziel als sie hinfährt
       P.nick = glatt(P.nick, zp.nick, V.nick, zeit, dt);
@@ -1094,7 +1140,7 @@
       const sanft = 1 / Math.sqrt(Math.exp(P.lz));
       const hub = (modus === 'start' ? Math.sin(t * 0.85) * 0.035 * sanft : 0) + 0.95 * rest * rest;
       drift += dt * (0.3 + 6.5 * rest * rest * rest + Math.abs(velP.v) * 10);   // beim Scrollen ziehen die Teilchen mit
-      const tiefe = clamp(0.1 + 0.9 * rest * rest, 0, 1) * (modus === 'tafel' ? 0.5 : 1);
+      const tiefe = clamp(0.1 + 0.9 * rest * rest + 0.4 * smooth(0, 8, -P.fy), 0, 1) * (modus === 'tafel' ? 0.5 : 1);   // je tiefer, desto dunkler
       motor.schritt(dt);
       motor.zeichnen({
         gier: P.gier - 342 * rest * rest + offGier + Math.sin(t * 0.5) * 1.6 * sanft,
@@ -1105,6 +1151,11 @@
 
       // Namen und Inhalte an den Blasen; erst wenn das Intro fast vorbei ist
       beschriften(fk, Math.exp(P.lz), smooth(INTRO * 0.6, INTRO * 0.95, introT));
+      titelSetzen(modus === 'start' ? smooth(INTRO * 0.5, INTRO * 0.9, introT) * (1 - smooth(0.02, 0.09, p)) : 0);
+      if (nachoben) {
+        const da = modus === 'start' && p > P_UNTEN - 0.05;
+        nachoben.classList.toggle('da', da); nachoben.tabIndex = da ? 0 : -1;
+      }
       miniZeigen();
 
       // Home-Logo: bewegt sich nur ganz leicht mit dem Zeiger
