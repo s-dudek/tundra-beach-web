@@ -1,0 +1,38 @@
+name: Live-Daten aktualisieren
+
+# Holt Wetter (Open-Meteo) und Pegel (Land Tirol) und schreibt data/live.json.
+# Geplante Läufe starten nur auf dem Standard-Branch (main).
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: live-daten
+  cancel-in-progress: false
+
+jobs:
+  aktualisieren:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Daten abrufen
+        run: node scripts/live-daten.mjs
+
+      - name: Änderung committen
+        run: |
+          if git diff --quiet -- data/live.json; then
+            echo "Keine Änderung."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/live.json
+          git commit -m "Live-Daten aktualisiert"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

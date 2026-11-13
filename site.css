@@ -1,0 +1,259 @@
+:root{
+  --bg: #ffffff;
+  --ink: #2c2c2b;
+  --wasser: #5b9bbd;
+  --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  --hut-b: min(90vw, 96svh);
+}
+*{ box-sizing: border-box; }
+html{ background: var(--bg); }
+body{
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+img{ display: block; }
+.nur-leser{
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* ---------- Intro (einmal pro Sitzung) ---------- */
+#intro{
+  position: fixed; inset: 0; z-index: 50;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  animation: introOut .5s ease forwards;
+  animation-delay: 1.5s;
+}
+@keyframes introOut{ to{ opacity: 0; visibility: hidden; } }
+.intro-mark{ position: absolute; height: auto; opacity: 0; transform-origin: 50% 50%; }
+.intro-wort{ width: min(64vw, 400px); animation: introWortKF 1.5s ease-in-out 1 both; }
+.intro-bild{ width: min(54vw, 340px); animation: introBildKF 1.5s ease-in-out 1 both; }
+@keyframes introWortKF{
+  0%   { opacity:0; transform:scale(.82); }
+  14%  { opacity:0; transform:scale(.82); }
+  20%  { opacity:1; transform:scale(1.08); }
+  26%  { opacity:1; transform:scale(1); }
+  50%  { opacity:1; transform:scale(1); }
+  58%  { opacity:0; transform:scale(1); }
+  100% { opacity:0; transform:scale(1); }
+}
+@keyframes introBildKF{
+  0%   { opacity:0; transform:scale(.82); }
+  58%  { opacity:0; transform:scale(.82); }
+  64%  { opacity:1; transform:scale(1.1); }
+  70%  { opacity:1; transform:scale(1); }
+  85%  { opacity:1; transform:scale(1); }
+  100% { opacity:0; transform:scale(7); }
+}
+.flash{ position: fixed; inset: 0; background: #fff; z-index: 51; pointer-events: none; opacity: 0; }
+.flash-1{ animation: flash1KF 1.5s ease-out 1 both; }
+.flash-2{ animation: flash2KF 1.5s ease-out 1 both; }
+.flash-3{ animation: flash3KF 1.5s ease-out 1 both; }
+@keyframes flash1KF{ 0%,14%{opacity:0} 17%{opacity:.85} 21%,100%{opacity:0} }
+@keyframes flash2KF{ 0%,57%{opacity:0} 59%{opacity:.85} 63%,100%{opacity:0} }
+@keyframes flash3KF{ 0%,87%{opacity:0} 90%{opacity:.85} 94%,100%{opacity:0} }
+html.skip-intro #intro{ display: none; }
+@media (prefers-reduced-motion: reduce){ #intro{ display: none; } }
+
+/* ---------- Bildmarke und Fußzeile, immer sichtbar ---------- */
+.marke{
+  position: fixed; z-index: 20;
+  top: clamp(14px, 3vh, 26px); left: clamp(14px, 3vw, 26px);
+  width: clamp(38px, 5.6vw, 56px);
+  opacity: .94;
+  transition: transform .2s ease, filter .4s ease;
+}
+.marke:hover, .marke:focus-visible{ transform: scale(1.06); }
+.marke img{ width: 100%; height: auto; }
+
+.legal-footer{
+  position: fixed; left: 0; right: 0; z-index: 20;
+  bottom: clamp(14px, 3vh, 28px);
+  display: flex; justify-content: center; align-items: center; gap: 10px;
+  font-size: clamp(10px, 1.1vw, 12px);
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ink); opacity: .6;
+  transition: color .4s ease;
+}
+.legal-footer a{
+  color: inherit; text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: opacity .2s ease, border-color .2s ease;
+}
+.legal-footer a:hover, .legal-footer a:focus-visible{ border-color: currentColor; }
+.legal-footer span{ opacity: .6; }
+html.innen .legal-footer{ color: #fff; }
+html.innen .marke{ filter: invert(1); }
+html.innen .buehne{ background: var(--ink); }
+
+/* ---------- Tafeln (Grundlayout, auch ohne Szene lesbar) ---------- */
+.tafel{
+  background: #fff; color: var(--ink);
+  border: 3px solid var(--ink); border-radius: 16px;
+  padding: clamp(20px, 3vw, 30px);
+  width: min(560px, 100%);
+}
+.tafel-kopf{ display: flex; align-items: baseline; gap: 12px; margin-bottom: 18px; }
+.tafel-kopf h2{ margin: 0; font-size: 1.15em; font-weight: 700; letter-spacing: .01em; }
+.tafel-nr, .tafel-fuss, .hinweis, .werte dt, .latte-skala{ font-family: var(--mono); }
+.tafel-nr{ font-size: .75em; letter-spacing: .12em; opacity: .55; }
+.tafel-fuss{ margin: 10px 0 0; font-size: .8em; letter-spacing: .04em; opacity: .75; }
+.tafel-fuss.klein{ font-size: .72em; margin-top: 6px; opacity: .6; }
+
+/* Uhr */
+.uhr-svg{ display: block; width: min(250px, 70%); margin: 0 auto; fill: none; stroke: var(--ink); stroke-linecap: round; }
+.uhr-rand{ stroke-width: 5; }
+.uhr-teilung{ stroke-width: 5; }
+.uhr-strich{ stroke-width: 2.5; opacity: .6; }
+.zeiger-h{ stroke-width: 7; }
+.zeiger-m{ stroke-width: 5; }
+.zeiger-s{ stroke-width: 2; stroke: var(--wasser); }
+.uhr-nabe{ fill: var(--ink); stroke: none; }
+.uhr-digital{ margin: 14px 0 0; text-align: center; font-family: var(--mono); font-size: 2.1em; font-weight: 700; letter-spacing: .06em; }
+#uhr .tafel-fuss{ text-align: center; }
+
+/* Kalender */
+.kal-monat{ margin: 0 0 12px; font-size: 1.5em; font-weight: 700; }
+.kal-raster{ display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px 0; text-align: center; font-variant-numeric: tabular-nums; }
+.kal-raster span{ display: grid; place-items: center; aspect-ratio: 1; border-radius: 50%; font-size: 1em; }
+.kal-raster .kal-kopf{ aspect-ratio: auto; padding-bottom: 6px; border-radius: 0; font-family: var(--mono); font-size: .68em; letter-spacing: .08em; opacity: .55; }
+.kal-raster .kal-we{ opacity: .6; }
+.kal-raster .kal-heute{ background: var(--ink); color: #fff; font-weight: 700; opacity: 1; }
+
+/* Wetter */
+.wetter-kopf{ display: flex; align-items: center; gap: 20px; margin-bottom: 18px; }
+.wetter-icon{ flex: none; width: 84px; height: 84px; }
+.wetter-icon svg{ display: none; width: 100%; height: 100%; fill: none; stroke: var(--ink); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.wetter-icon svg.aktiv{ display: block; }
+.wetter-temp{ margin: 0; font-size: 3em; font-weight: 700; line-height: 1; }
+.wetter-text{ margin: 6px 0 0; font-size: 1em; opacity: .8; }
+.werte{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; margin: 0; }
+.werte.eng{ grid-template-columns: 1fr; gap: 6px; margin-top: 14px; }
+.werte div{ margin: 0; }
+.werte dt{ font-size: .66em; letter-spacing: .08em; text-transform: uppercase; opacity: .55; }
+.werte dd{ margin: 2px 0 0; font-size: 1.05em; font-weight: 600; }
+
+/* Pegel */
+.pegel-zeile{ display: flex; gap: 22px; align-items: stretch; }
+.latte{
+  position: relative; flex: none; width: 74px; height: 210px;
+  border: 3px solid var(--ink); border-radius: 6px; overflow: hidden;
+  background: linear-gradient(to bottom, transparent calc(100% - 1px), rgba(44,44,43,.35) 0) 0 0 / 100% 25%;
+}
+.latte-wasser{
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: calc(var(--pegel, 0) * 100%);
+  background: var(--wasser); opacity: .85;
+  border-top: 3px solid var(--ink);
+  transition: height 1.2s ease;
+}
+.latte-skala{ position: absolute; inset: 0 4px 0 auto; display: flex; flex-direction: column; justify-content: space-between; padding: 2px 0; font-size: .6em; font-style: normal; text-align: right; }
+.latte-skala i{ font-style: normal; line-height: 1; }
+.pegel-wert{ margin: 0; font-size: 3em; font-weight: 700; line-height: 1; }
+.pegel-wert small{ font-size: .4em; font-weight: 600; opacity: .7; }
+.pegel-sub{ margin: 6px 0 0; opacity: .8; }
+
+/* Daten veraltet (letzter bekannter Stand) */
+.tafel.veraltet .tafel-fuss.stand{ opacity: 1; font-weight: 700; }
+
+/* ---------- Ohne Szene: ruhige Seite untereinander ---------- */
+.buehne{ display: flex; flex-direction: column; padding: clamp(80px, 12vh, 120px) 16px clamp(80px, 12vh, 110px); }
+.huette{ order: -1; display: grid; place-items: center; margin-bottom: clamp(28px, 6vh, 56px); }
+.huette-rahmen{ position: relative; width: var(--hut-b); max-width: 900px; aspect-ratio: 221.97 / 157.3; }
+.welt{ display: grid; justify-items: center; gap: clamp(20px, 4vh, 36px); }
+.raum, .weiss, .hinweis, .loch, .portal{ display: none; }
+
+/* Hütte: Wand und Tür sind getrennte Ebenen. Türfläche in Hütten-Koordinaten:
+   x 143,7 / y 46,9 / Breite 43 / Höhe 99 von 221,97 x 157,3. */
+.huette-bild{
+  display: block; width: 100%; height: auto;
+  clip-path: polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0,
+    64.738% 29.815%, 64.738% 92.753%, 84.111% 92.753%, 84.111% 29.815%, 64.738% 29.815%);
+}
+.tuer{
+  position: absolute; left: 64.738%; top: 29.815%; width: 19.372%; height: 62.937%;
+  transform-origin: 0 50%;
+  backface-visibility: hidden;
+}
+.tuer-flaeche{ position: relative; width: 100%; height: 100%; overflow: hidden; background: #fff; }
+.tuer-flaeche img{ position: absolute; width: 516.2%; max-width: none; left: -334.19%; top: -47.37%; }
+
+/* ---------- Mit Szene: Hütte betreten, Gang durchqueren, wieder hinausgehen ---------- */
+.szene .tour{ height: 900svh; }
+.szene .buehne{
+  position: sticky; top: 0; display: block; height: 100svh; padding: 0;
+  overflow: hidden; perspective: 900px;
+  /* Gang: Eingangswand bei z = 1110, Rückwand bei z = -4500 (siehe tour.js). Boden, Decke und Seitenwände
+     laufen 100 darüber hinaus, Ein- und Rückwand sind 8 kleiner. Berühren sich Flächen an der Kante,
+     verschwindet im Browser sonst ein Stück davon. */
+  --b: 1400px; --h: 900px; --l: 5810px; --z0: 1210px;
+  --b-wand: 1392px; --h-wand: 892px;
+}
+.szene .huette{ position: absolute; inset: 0; margin: 0; pointer-events: none; }
+.szene .huette-rahmen{ will-change: transform; }
+.szene .loch{ display: block; position: absolute; left: 64.738%; top: 29.815%; width: 19.372%; height: 62.937%; box-shadow: 0 0 0 250vmax #fff; }
+.szene .weiss{ display: block; position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+.szene .hinweis{
+  display: block; position: absolute; left: 0; right: 0; bottom: clamp(48px, 9svh, 90px);
+  margin: 0; text-align: center; font-size: clamp(10px, 1.2vw, 12px); letter-spacing: .22em; text-transform: uppercase;
+  opacity: .7;
+}
+.szene .hinweis::after{
+  content: ""; display: block; width: 1px; height: 30px; margin: 12px auto 0; background: currentColor;
+  transform-origin: top; animation: strich 1.8s ease-in-out infinite;
+}
+@keyframes strich{ 0%{ transform: scaleY(0); } 60%{ transform: scaleY(1); } 100%{ transform: scaleY(1); opacity: 0; } }
+
+.szene .welt{ display: block; position: absolute; inset: 0; transform-style: preserve-3d; will-change: transform; }
+.szene .raum{ display: block; position: absolute; inset: 0; transform-style: preserve-3d; }
+
+.flaeche{ position: absolute; left: 50%; top: 50%; background-color: var(--ink); }
+.szene .portal{ display: grid; }
+.decke, .boden{ width: var(--b); height: var(--l); margin: calc(var(--l) / -2) 0 0 calc(var(--b) / -2); }
+.boden{
+  transform: translate3d(0, calc(var(--h) / 2), calc(var(--z0) - var(--l) / 2)) rotateX(90deg);
+  background-image:
+    repeating-linear-gradient(90deg, rgba(255,255,255,.12) 0 3px, transparent 3px 140px),
+    repeating-linear-gradient(0deg, rgba(0,0,0,.35) 0 8px, transparent 8px 500px);
+}
+.decke{
+  transform: translate3d(0, calc(var(--h) / -2), calc(var(--z0) - var(--l) / 2)) rotateX(90deg);
+  background-image:
+    repeating-linear-gradient(0deg, rgba(0,0,0,.55) 0 22px, transparent 22px 500px),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.07) 0 3px, transparent 3px 140px);
+}
+.wand{
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='120'%3E%3Cpath d='M0 0H240M0 60H240M0 120H240M120 0V60M0 60V120M240 60V120' fill='none' stroke='%23fff' stroke-opacity='.14' stroke-width='3'/%3E%3C/svg%3E");
+  background-size: 240px 120px;
+}
+.wand-l, .wand-r{ width: var(--l); height: var(--h); margin: calc(var(--h) / -2) 0 0 calc(var(--l) / -2); }
+.wand-l{ transform: translate3d(calc(var(--b) / -2), 0, calc(var(--z0) - var(--l) / 2)) rotateY(90deg); }
+.wand-r{ transform: translate3d(calc(var(--b) / 2), 0, calc(var(--z0) - var(--l) / 2)) rotateY(90deg); }
+.endwand{
+  width: var(--b-wand); height: var(--h-wand); margin: calc(var(--h-wand) / -2) 0 0 calc(var(--b-wand) / -2);
+  transform: translate3d(0, 0, -4500px);
+  display: grid; place-items: center;
+}
+.endwand img{ width: 560px; filter: invert(1); opacity: .92; }
+.portal{
+  width: var(--b-wand); height: var(--h-wand); margin: calc(var(--h-wand) / -2) 0 0 calc(var(--b-wand) / -2);
+  background: #fff; display: grid; place-items: center; opacity: 0; visibility: hidden;
+  transform: translate3d(0, 0, 1110px);
+}
+.portal-rahmen{ width: 460px; height: 780px; border: 10px solid var(--ink); border-radius: 4px; box-shadow: inset 0 0 0 10px #fff, inset 0 0 0 13px rgba(44,44,43,.35); }
+
+.szene .tafel{
+  position: absolute; left: 50%; top: 50%;
+  width: min(560px, 104vw); font-size: 20px;
+  backface-visibility: hidden;
+  box-shadow: 0 0 0 4px #fff;
+  transform: translate3d(calc(-50% + var(--x, 0px)), -50%, var(--z, 0px));
+  will-change: opacity;
+}
+
+@media (prefers-reduced-motion: reduce){
+  .latte-wasser{ transition: none; }
+}
