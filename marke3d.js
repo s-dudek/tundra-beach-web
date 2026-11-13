@@ -1,6 +1,6 @@
 // Tundra Beach unter Wasser (WebGL2): Die Bildmarke schwebt als echter 3D-Körper im Wasser, zwischen Blasen,
 // Meeresstaub und Plankton, mit Lichtstrahlen und Lichtmustern. Die Bereiche (Wasserstand, Wetter, Kalender, Kontakt)
-// sind Seifenblasen mit Symbol, die um die Marke schweben. Scrollen führt von Blase zu Blase, ein Klick fliegt hin,
+// sind Seifenblasen mit Symbol, die um die Marke schweben. Scrollen zoomt hinein und hinaus, Blase für Blase, ein Klick fliegt hin,
 // dort erscheinen die Inhalte als Text in der Blase. Wo der Zeiger entlangfährt, steigen kleine Blasen auf.
 // Alle Bewegungen laufen über gedämpfte Federn. Klappt WebGL nicht, bleibt die flache Bildmarke mit den Inhalten als Text.
 (() => {
@@ -43,18 +43,19 @@
   /* ---------- Bereiche als Blasen im Wasser ---------- */
   // Lage in der Startansicht: [rechts, hoch, Tiefe] im Blickfeld, für Querformat (quer) und Hochformat (hoch);
   // unten = der Name steht oberhalb der Blase (zur Marke hin), damit er nicht am Bildrand klebt.
-  // gier/nick = Blickrichtung der Kamera, wenn sie die Blase besucht (relativ zur Anfangsperspektive gier).
+  // Die Kamera behält beim Besuch ihre Blickrichtung: Scrollen und Klicken zoomen nur hinein und wieder hinaus.
   const S_GIER = -18; const S_NICK = 6; const S_ZOOM = 1.28;       // Anfangsperspektive: ganze Marke im Bild
   const BLASE_R = 0.42;                                             // Radius einer Blase (die Marke ist 2 hoch)
   const BLASEN = {
-    wasserstand: { titel: 'Wasserstand', unter: 'Isel · Lienz', quer: [-2.15, 0.9, 0.5], hoch: [-0.75, 1.95, 0.3], gier: 12, nick: 3 },
-    wetter: { titel: 'Wetter', unter: 'Lienz', quer: [2.05, 1.1, -0.7], hoch: [0.75, 2.1, -0.4], gier: -10, nick: 5 },
-    kalender: { titel: 'Kalender', unter: 'Der Zahn der Zeit', quer: [-1.9, -0.95, -0.6], hoch: [-0.75, -1.75, -0.4], gier: 8, nick: 8, unten: true },
-    kontakt: { titel: 'Kontakt', unter: 'Die Nase vorn', quer: [2.2, -0.8, 0.5], hoch: [0.75, -1.8, 0.2], gier: -12, nick: 6, unten: true },
+    wasserstand: { titel: 'Wasserstand', unter: 'Isel · Lienz', quer: [-2.15, 0.9, 0.5], hoch: [-0.75, 1.95, 0.3] },
+    wetter: { titel: 'Wetter', unter: 'Lienz', quer: [2.05, 1.1, -0.7], hoch: [0.75, 2.1, -0.4] },
+    kalender: { titel: 'Kalender', unter: 'Der Zahn der Zeit', quer: [-1.9, -0.95, -0.6], hoch: [-0.75, -1.75, -0.4], unten: true },
+    kontakt: { titel: 'Kontakt', unter: 'Die Nase vorn', quer: [2.2, -0.8, 0.5], hoch: [0.75, -1.8, 0.2], unten: true },
   };
   const SCHLUESSEL = Object.keys(BLASEN);
   const ALIAS = { uhr: 'kalender' };                                // alte Adresse #uhr führt zum Kalender (dort steht auch die Uhr)
-  // Reise beim Scrollen: eine Blase nach der anderen. [Blase, von, bis] = Verweilen (Scroll-Fortschritt 0 bis 1)
+  // Reise beim Scrollen = Zoomen: hinein zur Blase, verweilen, hinaus zur Übersicht, hinein zur nächsten.
+  // [Blase, von, bis] = Verweilen (Scroll-Fortschritt 0 bis 1)
   const STOPPS = [['wasserstand', 0.17, 0.25], ['wetter', 0.36, 0.44], ['kalender', 0.55, 0.63], ['kontakt', 0.74, 0.82]];
   const K = (p, gier, nick, roll, f, zoom) => ({ p, gier, nick, roll, f, zoom });
   const MAX_KLEIN = 90;                                             // Blasen, die der Zeiger hinterlässt, höchstens gleichzeitig
@@ -143,7 +144,7 @@
   // Kamera bei einer Blase: Blickpunkt in der Mitte, sie füllt etwa drei Viertel der Höhe (oder 90 % der Breite)
   function blasePose(key, zeit, asp) {
     const b = BLASEN[key]; const halbH = Math.max(2.2, 1.7 / asp);
-    return { gier: S_GIER + b.gier, nick: b.nick, roll: 0, f: blasenPos(key, zeit, asp), zoom: (halbH * Math.min(0.74, 0.9 * asp)) / BLASE_R };
+    return { gier: S_GIER, nick: S_NICK, roll: 0, f: blasenPos(key, zeit, asp), zoom: (halbH * Math.min(0.74, 0.9 * asp)) / BLASE_R };
   }
 
   const linear = (hex) => {
@@ -957,8 +958,13 @@
     // Kamera am Ziel: bei der Blase, oder ganz am Anfang die Übersicht
     const start = (pp) => K(pp, S_GIER, S_NICK, 0, [0, 0, 0], S_ZOOM);
     function bahnBauen(asp, zeit) {
+      // Hineinzoomen zur Blase, verweilen, wieder hinaus zur Übersicht, hinein zur nächsten ...
       const bahn = [start(0), start(0.06)];
-      STOPPS.forEach(([k, a, b]) => { const q = blasePose(k, zeit, asp); bahn.push(K(a, q.gier, q.nick, 0, q.f, q.zoom), K(b, q.gier, q.nick, 0, q.f, q.zoom)); });
+      STOPPS.forEach(([k, a, b], i) => {
+        const q = blasePose(k, zeit, asp);
+        bahn.push(K(a, q.gier, q.nick, 0, q.f, q.zoom), K(b, q.gier, q.nick, 0, q.f, q.zoom));
+        if (i < STOPPS.length - 1) bahn.push(start((b + STOPPS[i + 1][1]) / 2));
+      });
       bahn.push(start(0.91), start(1));
       return bahn;
     }
