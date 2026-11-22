@@ -1,12 +1,12 @@
 {
   "wetter": {
-    "stand": "2026-11-22T16:45:00.000Z",
-    "temperatur": 0,
-    "gefuehlt": -2.3,
-    "feuchte": 95,
+    "stand": "2026-11-22T22:15:00.000Z",
+    "temperatur": 1,
+    "gefuehlt": -2.1,
+    "feuchte": 84,
     "niederschlag": 0,
-    "wind": 0.5,
-    "windrichtung": 225,
+    "wind": 5,
+    "windrichtung": 270,
     "code": 3
   },
   "pegel": {
