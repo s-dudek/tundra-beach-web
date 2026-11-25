@@ -1,13 +1,13 @@
 {
   "wetter": {
-    "stand": "2026-11-24T20:45:00.000Z",
-    "temperatur": -2.4,
-    "gefuehlt": -5.8,
-    "feuchte": 71,
+    "stand": "2026-11-25T04:00:00.000Z",
+    "temperatur": -4.1,
+    "gefuehlt": -7.3,
+    "feuchte": 87,
     "niederschlag": 0,
-    "wind": 3,
-    "windrichtung": 256,
-    "code": 0
+    "wind": 2.5,
+    "windrichtung": 172,
+    "code": 3
   },
   "pegel": {
     "messstelle": "Lienz",
