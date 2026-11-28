@@ -12,11 +12,11 @@
   "pegel": {
     "messstelle": "Lienz",
     "gewaesser": "Isel",
-    "stand": "2026-11-28T01:30:00.000Z",
-    "wasserstand_cm": 191.8,
-    "tendenz": 0,
-    "wassertemperatur": 3,
-    "wassertemperatur_stand": "2026-11-28T01:30:00.000Z"
+    "stand": "2026-11-28T09:45:00.000Z",
+    "wasserstand_cm": 194.4,
+    "tendenz": null,
+    "wassertemperatur": 2.3,
+    "wassertemperatur_stand": "2026-11-28T09:45:00.000Z"
   },
   "quellen": {
     "wetter": "Open-Meteo.com",
