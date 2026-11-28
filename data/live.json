@@ -1,22 +1,22 @@
 {
   "wetter": {
-    "stand": "2026-11-28T01:45:00.000Z",
-    "temperatur": -0.2,
-    "gefuehlt": -2.6,
-    "feuchte": 93,
+    "stand": "2026-11-28T18:00:00.000Z",
+    "temperatur": -5.1,
+    "gefuehlt": -8.6,
+    "feuchte": 85,
     "niederschlag": 0,
-    "wind": 0.5,
-    "windrichtung": 315,
-    "code": 2
+    "wind": 3.4,
+    "windrichtung": 328,
+    "code": 0
   },
   "pegel": {
     "messstelle": "Lienz",
     "gewaesser": "Isel",
-    "stand": "2026-11-28T09:45:00.000Z",
-    "wasserstand_cm": 194.4,
+    "stand": "2026-11-28T17:45:00.000Z",
+    "wasserstand_cm": 192.4,
     "tendenz": null,
-    "wassertemperatur": 2.3,
-    "wassertemperatur_stand": "2026-11-28T09:45:00.000Z"
+    "wassertemperatur": 1.6,
+    "wassertemperatur_stand": "2026-11-28T17:45:00.000Z"
   },
   "quellen": {
     "wetter": "Open-Meteo.com",
